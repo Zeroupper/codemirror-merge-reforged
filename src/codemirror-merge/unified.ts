@@ -133,7 +133,7 @@ function deletionWidget(state: EditorState, chunk: Chunk, hideContent: boolean) 
       let buttons = dom.appendChild(document.createElement("div"))
       buttons.className = "cm-chunkButtons"
       let accept = buttons.appendChild(document.createElement("button"))
-      accept.name = "Accept"
+      accept.name = "accept"
       accept.textContent = state.phrase("Accept")
       accept.onmousedown = e => { e.preventDefault(); acceptChunk(view, view.posAtDOM(dom)) }
       let reject = buttons.appendChild(document.createElement("button"))
