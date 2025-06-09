@@ -5,13 +5,15 @@ interface ButtonProps {
   onClick: () => void;
   variant?: 'primary' | 'success';
   className?: string;
+  disabled?: boolean;
 }
 
 const Button: React.FC<ButtonProps> = ({ 
   children, 
   onClick, 
   variant = 'primary',
-  className = '' 
+  className = '',
+  disabled = false
 }) => {
   const variantClass = variant === 'success' ? 'button-success' : 'button-primary';
   
@@ -19,6 +21,7 @@ const Button: React.FC<ButtonProps> = ({
     <button 
       className={`button ${variantClass} ${className}`}
       onClick={onClick}
+      disabled={disabled}
     >
       {children}
     </button>
