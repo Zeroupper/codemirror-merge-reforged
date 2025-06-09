@@ -327,6 +327,47 @@ export class MergeView {
   }
 }
 
+/// Accept all chunks in a merge view in a single transaction.
+/// This allows undoing all accepts as one operation and is more efficient
+/// than accepting chunks individually.
+export function acceptAllChunks(mergeView: MergeView, direction: "a-to-b" | "b-to-a" = "a-to-b") {
+  const chunks = mergeView.chunks;
+  if (!chunks || chunks.length === 0) return false;
+  
+  const [source, dest] = direction === "a-to-b" 
+    ? [mergeView.a, mergeView.b] 
+    : [mergeView.b, mergeView.a];
+  
+  let changes: {from: number, to: number, insert: string}[] = [];
+  
+  // Process chunks in reverse order to maintain correct positions
+  for (let i = chunks.length - 1; i >= 0; i--) {
+    const chunk = chunks[i];
+    const [srcFrom, srcTo, destFrom, destTo] = direction === "a-to-b"
+      ? [chunk.fromA, chunk.toA, chunk.fromB, chunk.toB]
+      : [chunk.fromB, chunk.toB, chunk.fromA, chunk.toA];
+    
+    let insert = source.state.sliceDoc(srcFrom, Math.max(srcFrom, srcTo - 1));
+    if (srcFrom != srcTo && destTo <= dest.state.doc.length) {
+      insert += source.state.lineBreak;
+    }
+    
+    changes.push({
+      from: destFrom,
+      to: Math.min(dest.state.doc.length, destTo),
+      insert
+    });
+  }
+  
+  // Apply all changes in a single transaction
+  dest.dispatch({
+    changes,
+    userEvent: "revert.all"
+  });
+  
+  return true;
+}
+
 function rm(elt: HTMLElement) {
   let next = elt.nextSibling
   elt.remove()

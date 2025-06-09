@@ -8,6 +8,7 @@ import {setChunks, ChunkField, mergeConfig} from "./merge"
 import {Change, DiffConfig} from "./diff"
 import {decorateChunks, collapseUnchanged, changedText} from "./deco"
 import {baseTheme} from "./theme"
+import {invertedEffects} from "@codemirror/commands"
 
 interface UnifiedMergeConfig {
   /// The other document to compare the editor content with.
@@ -71,6 +72,18 @@ export function unifiedMergeView(config: UnifiedMergeConfig) {
       let chunks = updateDoc ? Chunk.updateA(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf)
         : Chunk.updateB(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf)
       return {effects: setChunks.of(chunks)}
+    }),
+    invertedEffects.of(tr => {
+      let effects: StateEffect<any>[] = []
+      for (let effect of tr.effects) {
+        if (effect.is(updateOriginalDoc)) {
+          // Create the inverse effect that restores the previous original doc
+          let prevDoc = getOriginalDoc(tr.startState)
+          let inverseChanges = effect.value.changes.invert(effect.value.doc)
+          effects.push(updateOriginalDoc.of({doc: prevDoc, changes: inverseChanges}))
+        }
+      }
+      return effects
     }),
     mergeConfig.of({
       highlightChanges: config.highlightChanges !== false,
@@ -241,6 +254,41 @@ export function rejectChunk(view: EditorView, pos?: number) {
     changes: {from: chunk.fromB, to: Math.min(state.doc.length, chunk.toB), insert},
     userEvent: "revert"
   })
+  return true
+}
+
+/// In a [unified](#merge.unifiedMergeView) merge view, accept all
+/// chunks in a single transaction. This allows undoing all accepts
+/// as one operation and is more efficient than accepting chunks individually.
+export function acceptAllChunks(view: EditorView) {
+  let {state} = view
+  let chunks = state.field(ChunkField)
+  if (!chunks || chunks.length === 0) return false
+  
+  let orig = state.field(originalDoc)
+  let changes: {from: number, to: number, insert: string}[] = []
+  
+  // Process chunks in reverse order to maintain correct positions
+  for (let i = chunks.length - 1; i >= 0; i--) {
+    let chunk = chunks[i]
+    let insert = state.sliceDoc(chunk.fromB, Math.max(chunk.fromB, chunk.toB - 1))
+    if (chunk.fromB != chunk.toB && chunk.toA <= orig.length) insert += state.lineBreak
+    
+    changes.push({
+      from: chunk.fromA, 
+      to: Math.min(orig.length, chunk.toA), 
+      insert
+    })
+  }
+  
+  // Combine all changes into a single ChangeSet
+  let combinedChanges = ChangeSet.of(changes, orig.length)
+  
+  view.dispatch({
+    effects: updateOriginalDoc.of({doc: combinedChanges.apply(orig), changes: combinedChanges}),
+    userEvent: "accept.all"
+  })
+  
   return true
 }
 

@@ -1,8 +1,8 @@
 // Main exports for the CodeMirror merge package
-export { MergeView } from './mergeview';
+export { MergeView, acceptAllChunks as acceptAllChunksMergeView } from './mergeview';
 export type { MergeConfig, DirectMergeConfig } from './mergeview';
 
-export { unifiedMergeView, acceptChunk, rejectChunk, getOriginalDoc, originalDocChangeEffect, updateOriginalDoc } from './unified';
+export { unifiedMergeView, acceptChunk, rejectChunk, getOriginalDoc, originalDocChangeEffect, updateOriginalDoc, acceptAllChunks as acceptAllChunksUnified } from './unified';
 
 export { Chunk } from './chunk';
 export { getChunks, goToNextChunk, goToPreviousChunk } from './merge';
