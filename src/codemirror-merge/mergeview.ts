@@ -1,5 +1,7 @@
 import {EditorView} from "@codemirror/view"
 import {EditorStateConfig, Transaction, EditorState, StateEffect, Prec, Compartment, ChangeSet} from "@codemirror/state"
+import {history, undo, redo, undoDepth, redoDepth} from "@codemirror/commands"
+import {keymap} from "@codemirror/view"
 import {Chunk, defaultDiffConfig} from "./chunk"
 import {DiffConfig} from "./diff"
 import {setChunks, ChunkField, mergeConfig} from "./merge"
@@ -49,6 +51,77 @@ export interface DirectMergeConfig extends MergeConfig {
   root?: Document | ShadowRoot
 }
 
+// Shared history state for unified undo/redo
+class SharedHistory {
+  private history: {editor: 'a' | 'b', transaction: Transaction}[] = []
+  private currentIndex = -1
+  
+  private log(action: string, extra?: any) {
+    console.group(`=== SharedHistory: ${action} ===`);
+    console.log('Current index:', this.currentIndex);
+    console.log('History length:', this.history.length);
+    console.log('History:', this.history.map((entry, i) => `${i}: ${entry.editor} - Transaction`));
+    console.log('Can undo:', this.canUndo());
+    console.log('Can redo:', this.canRedo());
+    if (extra) console.log('Extra:', extra);
+    console.groupEnd();
+  }
+  
+  addTransaction(editor: 'a' | 'b', transaction: Transaction) {
+    console.log(`Adding transaction for editor ${editor}`);
+    
+    // Remove any future history when adding new transaction
+    this.history = this.history.slice(0, this.currentIndex + 1)
+    
+    this.history.push({editor, transaction})
+    this.currentIndex++
+    
+    this.log('addTransaction', { editor, transactionDocChanged: transaction.docChanged });
+  }
+  
+  canUndo() {
+    return this.currentIndex >= 0
+  }
+  
+  canRedo() {
+    return this.currentIndex < this.history.length - 1
+  }
+  
+  undo(): {editor: 'a' | 'b', transaction: Transaction} | null {
+    if (!this.canUndo()) {
+      this.log('undo - cannot undo');
+      return null;
+    }
+    
+    const result = this.history[this.currentIndex]
+    this.currentIndex--
+    
+    this.log('undo', { 
+      undoingIndex: this.currentIndex + 1,
+      editor: result.editor
+    });
+    
+    return result
+  }
+  
+  redo(): {editor: 'a' | 'b', transaction: Transaction} | null {
+    if (!this.canRedo()) {
+      this.log('redo - cannot redo');
+      return null;
+    }
+    
+    this.currentIndex++
+    const result = this.history[this.currentIndex]
+    
+    this.log('redo', {
+      redoingIndex: this.currentIndex,
+      editor: result.editor
+    });
+    
+    return result
+  }
+}
+
 const collapseCompartment = new Compartment, configCompartment = new Compartment
 
 /// A merge view manages two editors side-by-side, highlighting the
@@ -72,6 +145,7 @@ export class MergeView {
   private revertToLeft = false
   private renderRevert: (() => HTMLElement) | undefined
   private diffConf: DiffConfig | undefined
+  private sharedHistory = new SharedHistory()
 
   /// The current set of changed chunks.
   chunks: readonly Chunk[]
@@ -82,11 +156,75 @@ export class MergeView {
   constructor(config: DirectMergeConfig) {
     this.diffConf = config.diffConfig || defaultDiffConfig
 
+    // Create unified undo/redo commands
+    const unifiedUndo = () => {
+      console.log('🔄 UNIFIED UNDO CALLED - Our custom implementation');
+      const historyEntry = this.sharedHistory.undo()
+      if (historyEntry) {
+        const {editor, transaction} = historyEntry
+        const targetEditor = editor === 'a' ? this.a : this.b
+        
+        console.log(`Undoing transaction from editor ${editor}`);
+        
+        // Create inverse transaction to undo the change
+        const inverseChanges = transaction.changes.invert(transaction.startState.doc)
+        
+        targetEditor.dispatch({
+          changes: inverseChanges,
+          userEvent: "undo",
+          annotations: [Transaction.addToHistory.of(false)]
+        })
+        return true
+      } else {
+        console.log('No history entry to undo');
+      }
+      return false
+    }
+
+    const unifiedRedo = () => {
+      console.log('🔄 UNIFIED REDO CALLED - Our custom implementation');
+      const historyEntry = this.sharedHistory.redo()
+      if (historyEntry) {
+        const {editor, transaction} = historyEntry
+        const targetEditor = editor === 'a' ? this.a : this.b
+        
+        console.log(`Redoing transaction from editor ${editor}`);
+        
+        // Re-apply the original changes
+        targetEditor.dispatch({
+          changes: transaction.changes,
+          userEvent: "redo",
+          annotations: [Transaction.addToHistory.of(false)]
+        })
+        return true
+      } else {
+        console.log('No history entry to redo');
+      }
+      return false
+    }
+
+     // Unified keymap for both editors - with highest precedence
+     const unifiedKeymap = keymap.of([
+      {key: "Mod-z", run: (view) => {
+        console.log('🎯 Mod-z pressed - calling unified undo');
+        return unifiedUndo();
+      }},
+      {key: "Mod-y", run: (view) => {
+        console.log('🎯 Mod-y pressed - calling unified redo');
+        return unifiedRedo();
+      }},
+      {key: "Mod-Shift-z", run: (view) => {
+        console.log('🎯 Mod-Shift-z pressed - calling unified redo');
+        return unifiedRedo();
+      }}
+    ])
+
     let sharedExtensions = [
       Prec.low(decorateChunks),
       baseTheme,
       externalTheme,
       Spacers,
+      Prec.highest(unifiedKeymap), // Our unified keymap with highest priority
       EditorView.updateListener.of(update => {
         if (this.measuring < 0 && (update.heightChanged || update.viewportChanged) &&
             !update.transactions.some(tr => tr.effects.some(e => e.is(adjustSpacers))))
@@ -108,6 +246,7 @@ export class MergeView {
         config.a.extensions || [],
         EditorView.editorAttributes.of({class: "cm-merge-a"}),
         configCompartment.of(configA),
+        // Remove individual history - we'll handle it ourselves
         sharedExtensions
       ]
     })
@@ -126,6 +265,7 @@ export class MergeView {
         config.b.extensions || [],
         EditorView.editorAttributes.of({class: "cm-merge-b"}),
         configCompartment.of(configB),
+        // Remove individual history - we'll handle it ourselves
         sharedExtensions
       ]
     })
@@ -169,6 +309,21 @@ export class MergeView {
     if (trs.some(tr => tr.docChanged)) {
       let last = trs[trs.length - 1]
       let changes = trs.reduce((chs, tr) => chs.compose(tr.changes), ChangeSet.empty(trs[0].startState.doc.length))
+      
+      // Check if this is an undo/redo transaction - don't add to history
+      const userEvent = last.annotation(Transaction.userEvent)
+      const addToHistory = last.annotation(Transaction.addToHistory)
+      const isUndoRedo = userEvent === "undo" || userEvent === "redo" || addToHistory === false
+      
+      console.log(`Dispatch: editor ${target === this.a ? 'a' : 'b'}, userEvent: ${userEvent}, addToHistory: ${addToHistory}, isUndoRedo: ${isUndoRedo}`);
+      
+      // Only add to shared history if it's not an undo/redo operation
+      if (!isUndoRedo) {
+        this.sharedHistory.addTransaction(target === this.a ? 'a' : 'b', last)
+      } else {
+        console.log('Skipping history addition for undo/redo transaction');
+      }
+      
       this.chunks = target == this.a ? Chunk.updateA(this.chunks, last.newDoc, this.b.state.doc, changes, this.diffConf)
         : Chunk.updateB(this.chunks, this.a.state.doc, last.newDoc, changes, this.diffConf)
       target.update([...trs, last.state.update({effects: setChunks.of(this.chunks)})])
