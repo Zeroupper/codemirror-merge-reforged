@@ -96,24 +96,24 @@ const MergeViewDemo: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<MergeView | EditorView | null>(null);
 
-  const logEditorState = (view: MergeView | EditorView, type: string) => {
-    console.group(`=== ${type} Editor State ===`);
+  // const logEditorState = (view: MergeView | EditorView, type: string) => {
+  //   console.group(`=== ${type} Editor State ===`);
 
-    if (view instanceof MergeView) {
-      // console.log('MergeView instance:', view);
-      console.log("Editor A state:", view.a.state);
-      console.log("Editor A document:", view.a.state.doc.toString());
-      console.log("Editor B state:", view.b.state);
-      console.log("Editor B document:", view.b.state.doc.toString());
-      console.log("Chunks:", view.chunks);
-    } else {
-      // console.log('EditorView instance:', view);
-      console.log("State:", view.state);
-      console.log("Document:", view.state.doc.toString());
-    }
+  //   if (view instanceof MergeView) {
+  //     // console.log('MergeView instance:', view);
+  //     console.log("Editor A state:", view.a.state);
+  //     console.log("Editor A document:", view.a.state.doc.toString());
+  //     console.log("Editor B state:", view.b.state);
+  //     console.log("Editor B document:", view.b.state.doc.toString());
+  //     console.log("Chunks:", view.chunks);
+  //   } else {
+  //     // console.log('EditorView instance:', view);
+  //     console.log("State:", view.state);
+  //     console.log("Document:", view.state.doc.toString());
+  //   }
 
-    console.groupEnd();
-  };
+  //   console.groupEnd();
+  // };
 
   // // State change listener extension
   // const stateChangeListener = EditorView.updateListener.of((update) => {
@@ -166,13 +166,6 @@ const MergeViewDemo: React.FC = () => {
       highlightChanges: true,
       gutter: true,
     });
-
-    // Log the state after creation
-    setTimeout(() => {
-      if (viewRef.current) {
-        logEditorState(viewRef.current, "Split View");
-      }
-    }, 100);
   };
 
   const createUnifiedView = (example: Example) => {
@@ -194,13 +187,6 @@ const MergeViewDemo: React.FC = () => {
         // stateChangeListener
       ],
     });
-
-    // Log the state after creation
-    setTimeout(() => {
-      if (viewRef.current) {
-        logEditorState(viewRef.current, "Unified View");
-      }
-    }, 100);
   };
 
   useEffect(() => {
@@ -228,15 +214,6 @@ const MergeViewDemo: React.FC = () => {
     label: example.name,
   }));
 
-  // Add a button to manually log current state
-  const handleLogState = () => {
-    if (viewRef.current) {
-      logEditorState(viewRef.current, `Current ${viewType} View`);
-    } else {
-      console.log("No editor view available");
-    }
-  };
-
   const handleAcceptAllChunks = () => {
     if (!viewRef.current) return;
 
@@ -263,9 +240,6 @@ const MergeViewDemo: React.FC = () => {
       </div>
 
       <div className="button-group">
-        <button className="button button-primary" onClick={handleLogState}>
-          Log Editor State
-        </button>
         <button
           className="button button-primary"
           onClick={handleAcceptAllChunks}
