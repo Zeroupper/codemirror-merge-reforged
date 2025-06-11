@@ -9,3 +9,6 @@ export { getChunks, goToNextChunk, goToPreviousChunk } from './merge';
 
 export { diff, presentableDiff } from './diff';
 export type { DiffConfig, Change } from './diff';
+
+export { mergeKeymap, defaultMergeKeymap } from './keymap';
+export type { MergeKeymapConfig } from './keymap';
