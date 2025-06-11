@@ -16,6 +16,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": [
+    "src",
+    "examples/basic-demo/src/MergeViewDemo.tsx",
+    "examples/basic-demo/src/PerformanceDemo.tsx"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { EditorView } from "@codemirror/view";
 import { basicSetup } from "codemirror";
-import Container from "./ui/Container";
-import Button from "./ui/Button";
-import { unifiedMergeView } from "../codemirror-merge/unified";
+import Container from "./components/Container";
+import Button from "./components/Button";
+import { unifiedMergeView } from "../../../src/unified";
 
 const sampleCode = {
   original: `import { useEffect, useRef } from 'react';

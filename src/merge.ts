@@ -26,7 +26,7 @@ export const mergeConfig = Facet.define<Config, Config>({
 export const setChunks = StateEffect.define<readonly Chunk[]>()
 
 export const ChunkField = StateField.define<readonly Chunk[]>({
-  create(state) {
+  create(_) {
     return null as any
   },
   update(current, tr) {
