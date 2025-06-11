@@ -80,25 +80,6 @@ class SharedHistory {
   private lastRedoTimestamp = 0;
   private groupTimeoutMs = 1000;
 
-  private log(action: string, extra?: any) {
-    console.group(`=== SharedHistory: ${action} ===`);
-    console.log("Current index:", this.currentIndex);
-    console.log("History length:", this.history.length);
-    console.log(
-      "History:",
-      this.history.map(
-        (entry, i) =>
-          `${i}: ${entry.editor} - Transaction (${new Date(
-            entry.timestamp
-          ).toISOString()})`
-      )
-    );
-    console.log("Can undo:", this.canUndo());
-    console.log("Can redo:", this.canRedo());
-    if (extra) console.log("Extra:", extra);
-    console.groupEnd();
-  }
-
   addTransaction(editor: "a" | "b", transaction: Transaction) {
     console.log(`Adding transaction for editor ${editor}`);
 
@@ -106,11 +87,6 @@ class SharedHistory {
     this.history = this.history.slice(0, this.currentIndex + 1);
     this.history.push({ editor, transaction, timestamp: Date.now() });
     this.currentIndex++;
-
-    this.log("addTransaction", {
-      editor,
-      transactionDocChanged: transaction.docChanged,
-    });
   }
 
   canUndo() {
@@ -147,14 +123,6 @@ class SharedHistory {
       }
     }
 
-    this.log("getUndoGroup", {
-      range: `${startIndex}-${endIndex}`,
-      count: endIndex - startIndex + 1,
-      timestamps: this.history
-        .slice(startIndex, endIndex + 1)
-        .map((e) => e.timestamp),
-    });
-
     return { startIndex, endIndex };
   }
 
@@ -184,14 +152,6 @@ class SharedHistory {
       }
     }
 
-    this.log("getRedoGroup", {
-      range: `${startIndex}-${endIndex}`,
-      count: endIndex - startIndex + 1,
-      timestamps: this.history
-        .slice(startIndex, endIndex + 1)
-        .map((e) => e.timestamp),
-    });
-
     return { startIndex, endIndex };
   }
 
@@ -199,7 +159,6 @@ class SharedHistory {
   undoGroup(): { editor: "a" | "b"; transactions: Transaction[] }[] | null {
     const group = this.getUndoGroup();
     if (!group) {
-      this.log("undoGroup - cannot undo");
       return null;
     }
 
@@ -232,12 +191,6 @@ class SharedHistory {
     this.currentIndex = group.startIndex - 1;
     this.lastUndoTimestamp = Date.now();
 
-    this.log("undoGroup", {
-      undoingRange: `${group.startIndex}-${group.endIndex}`,
-      transactionCount: group.endIndex - group.startIndex + 1,
-      newIndex: this.currentIndex,
-    });
-
     return result;
   }
 
@@ -245,7 +198,6 @@ class SharedHistory {
   redoGroup(): { editor: "a" | "b"; transactions: Transaction[] }[] | null {
     const group = this.getRedoGroup();
     if (!group) {
-      this.log("redoGroup - cannot redo");
       return null;
     }
 
@@ -278,30 +230,14 @@ class SharedHistory {
     this.currentIndex = group.endIndex;
     this.lastRedoTimestamp = Date.now();
 
-    this.log("redoGroup", {
-      redoingRange: `${group.startIndex}-${group.endIndex}`,
-      transactionCount: group.endIndex - group.startIndex + 1,
-      newIndex: this.currentIndex,
-    });
-
     return result;
   }
 
   // Single undo (backwards compatible)
   undo(): { editor: "a" | "b"; transaction: Transaction } | null {
-    if (!this.canUndo()) {
-      this.log("undo - cannot undo");
-      return null;
-    }
-
     const result = this.history[this.currentIndex];
     this.currentIndex--;
     this.lastUndoTimestamp = Date.now();
-
-    this.log("undo", {
-      undoingIndex: this.currentIndex + 1,
-      editor: result.editor,
-    });
 
     return result;
   }
@@ -309,18 +245,12 @@ class SharedHistory {
   // Single redo (backwards compatible)
   redo(): { editor: "a" | "b"; transaction: Transaction } | null {
     if (!this.canRedo()) {
-      this.log("redo - cannot redo");
       return null;
     }
 
     this.currentIndex++;
     const result = this.history[this.currentIndex];
     this.lastRedoTimestamp = Date.now();
-
-    this.log("redo", {
-      redoingIndex: this.currentIndex,
-      editor: result.editor,
-    });
 
     return result;
   }
@@ -362,7 +292,6 @@ class SharedHistory {
     this.currentIndex = -1;
     this.lastUndoTimestamp = 0;
     this.lastRedoTimestamp = 0;
-    this.log("clear");
   }
 
   // Get current state info
