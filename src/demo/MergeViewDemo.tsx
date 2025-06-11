@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { EditorView, keymap } from "@codemirror/view";
-import { MergeView, acceptAllChunksMergeView } from "../codemirror-merge";
-import { unifiedMergeView, acceptAllChunksUnified } from "../codemirror-merge";
 import Container from "./ui/Container";
 import ViewTypeToggle from "./ui/ViewTypeToggle";
 import Select from "./ui/Select";
 import EditorContainer from "./ui/EditorContainer";
 import { history, historyKeymap } from "@codemirror/commands";
+import { MergeView } from "../codemirror-merge/mergeview";
+import { unifiedMergeView } from "../codemirror-merge/unified";
+import { acceptAllChunks as acceptAllChunksMergeView } from "../codemirror-merge/mergeview";
+import { acceptAllChunks as acceptAllChunksUnified } from "../codemirror-merge/unified";
 
 interface Example {
   name: string;
