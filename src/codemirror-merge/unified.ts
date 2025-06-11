@@ -50,7 +50,7 @@ const deletedChunkGutterMarker = new class extends GutterMarker {
 const unifiedChangeGutter = Prec.low(gutter({
   class: "cm-changeGutter",
   markers: view => view.plugin(decorateChunks)?.gutter || RangeSet.empty,
-  widgetMarker: (view, widget) => widget instanceof DeletionWidget ? deletedChunkGutterMarker : null
+  widgetMarker: (_, widget) => widget instanceof DeletionWidget ? deletedChunkGutterMarker : null
 }))
 
 /// Create an extension that causes the editor to display changes
@@ -60,6 +60,7 @@ const unifiedChangeGutter = Prec.low(gutter({
 export function unifiedMergeView(config: UnifiedMergeConfig) {
   let orig = typeof config.original == "string" ? Text.of(config.original.split(/\r?\n/)) : config.original
   let diffConf = config.diffConfig || defaultDiffConfig
+
   return [
     Prec.low(decorateChunks),
     deletedChunks,
@@ -345,7 +346,7 @@ class InlineDeletion extends WidgetType {
 
   eq(other: InlineDeletion) { return this.text == other.text }
 
-  toDOM(view: EditorView) {
+  toDOM(_: EditorView) {
     let elt = document.createElement("del")
     elt.className = "cm-deletedText"
     elt.textContent = this.text

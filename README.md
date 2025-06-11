@@ -7,6 +7,16 @@
 This package implements a merge interface for the
 [CodeMirror](https://codemirror.net/) code editor.
 
+## Key Differences from @codemirror/merge
+
+This implementation includes two major enhancements over the original `@codemirror/merge` package:
+
+- **Split View**: Features a **shared history state** between both editor windows, enabling unified undo/redo operations across both sides of the merge view
+- **Unified View**: Supports **invertible accepted changes**, allowing you to undo accepted merge operations through the standard undo mechanism
+- **Demo**: Added a demo implementation that allows you to test the MergeView/UnifiedMergeView.
+
+These improvements provide a more intuitive and powerful merge experience with better history management.
+
 The [project page](https://codemirror.net/) has more information, a
 number of [examples](https://codemirror.net/examples/) and the
 [documentation](https://codemirror.net/docs/).

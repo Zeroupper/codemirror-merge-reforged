@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { EditorView } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
-import { basicSetup } from "codemirror";
+import { EditorView, keymap } from "@codemirror/view";
 import { MergeView, acceptAllChunksMergeView } from "../codemirror-merge";
 import { unifiedMergeView, acceptAllChunksUnified } from "../codemirror-merge";
 import Container from "./ui/Container";
 import ViewTypeToggle from "./ui/ViewTypeToggle";
 import Select from "./ui/Select";
 import EditorContainer from "./ui/EditorContainer";
+import { history, historyKeymap } from "@codemirror/commands";
 
 interface Example {
   name: string;
@@ -96,50 +95,6 @@ const MergeViewDemo: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<MergeView | EditorView | null>(null);
 
-  // const logEditorState = (view: MergeView | EditorView, type: string) => {
-  //   console.group(`=== ${type} Editor State ===`);
-
-  //   if (view instanceof MergeView) {
-  //     // console.log('MergeView instance:', view);
-  //     console.log("Editor A state:", view.a.state);
-  //     console.log("Editor A document:", view.a.state.doc.toString());
-  //     console.log("Editor B state:", view.b.state);
-  //     console.log("Editor B document:", view.b.state.doc.toString());
-  //     console.log("Chunks:", view.chunks);
-  //   } else {
-  //     // console.log('EditorView instance:', view);
-  //     console.log("State:", view.state);
-  //     console.log("Document:", view.state.doc.toString());
-  //   }
-
-  //   console.groupEnd();
-  // };
-
-  // // State change listener extension
-  // const stateChangeListener = EditorView.updateListener.of((update) => {
-  //   console.group('=== Editor State Change ===');
-  //   console.log('Update:', update);
-  //   console.log('Doc changed:', update.docChanged);
-  //   console.log('Selection changed:', update.selectionSet);
-  //   console.log('View changed:', update.viewportChanged);
-  //   console.log('Height changed:', update.heightChanged);
-  //   console.log('Transactions:', update.transactions);
-
-  //   if (update.docChanged) {
-  //     console.log('Document before:', update.startState.doc.toString());
-  //     console.log('Document after:', update.state.doc.toString());
-  //     console.log('Changes:', update.changes);
-  //   }
-
-  //   if (update.selectionSet) {
-  //     console.log('Selection before:', update.startState.selection);
-  //     console.log('Selection after:', update.state.selection);
-  //   }
-
-  //   console.log('Effects:', update.transactions.flatMap(tr => tr.effects));
-  //   console.groupEnd();
-  // });
-
   const createSplitView = (example: Example) => {
     if (!containerRef.current) return;
 
@@ -149,17 +104,30 @@ const MergeViewDemo: React.FC = () => {
       a: {
         doc: example.original,
         extensions: [
-          basicSetup,
-          // stateChangeListener
+          EditorView.lineWrapping,
+          EditorView.theme({
+            ".cm-changeGutter": {
+              width: "4px !important", // Slightly wider to accommodate rounded elements
+              backgroundColor: "transparent !important",
+            },
+          }),
         ],
       },
       b: {
         doc: example.modified,
         extensions: [
-          basicSetup,
-          EditorView.editable.of(true),
-          // stateChangeListener
+          EditorView.lineWrapping,
+          EditorView.theme({
+            ".cm-changeGutter": {
+              width: "4px !important", // Slightly wider to accommodate rounded elements
+              backgroundColor: "transparent !important",
+            },
+          }),
         ],
+      },
+      keymap: {
+        undo: "Mod-z",
+        redo: "Mod-y",
       },
       parent: containerRef.current,
       revertControls: "a-to-b",
@@ -177,14 +145,21 @@ const MergeViewDemo: React.FC = () => {
       parent: containerRef.current,
       doc: example.modified,
       extensions: [
-        basicSetup,
+        history(),
+        keymap.of(historyKeymap),
+        EditorView.lineWrapping,
+        EditorView.theme({
+          ".cm-changeGutter": {
+            width: "4px !important", // Slightly wider to accommodate rounded elements
+            backgroundColor: "transparent !important",
+          },
+        }),
         unifiedMergeView({
           original: example.original,
           mergeControls: true,
           highlightChanges: true,
           gutter: true,
         }),
-        // stateChangeListener
       ],
     });
   };

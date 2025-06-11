@@ -8,7 +8,6 @@ import {
   Compartment,
   ChangeSet,
 } from "@codemirror/state";
-import { keymap } from "@codemirror/view";
 import { Chunk, defaultDiffConfig } from "./chunk";
 import { DiffConfig } from "./diff";
 import { setChunks, ChunkField, mergeConfig } from "./merge";
@@ -21,6 +20,7 @@ import {
   changeGutter,
 } from "./deco";
 import { baseTheme, externalTheme } from "./theme";
+import { defaultMergeKeymap, mergeKeymap, MergeKeymapConfig } from "./keymap";
 
 /// Configuration options to `MergeView` that can be provided both
 /// initially and to [`reconfigure`](#merge.MergeView.reconfigure).
@@ -47,6 +47,9 @@ export interface MergeConfig {
   /// Pass options to the diff algorithm. By default, the merge view
   /// sets [`scanLimit`](#merge.DiffConfig.scanLimit) to 500.
   diffConfig?: DiffConfig;
+    /// Configuration for undo/redo keybindings. If not provided, uses
+  /// default Mod-z for undo and Mod-y/Mod-Shift-z for redo.
+  keymap?: MergeKeymapConfig | false;
 }
 
 /// Configuration options given to the [`MergeView`](#merge.MergeView)
@@ -376,8 +379,8 @@ class SharedHistory {
 }
 
 const collapseCompartment = new Compartment(),
-  configCompartment = new Compartment();
-
+  configCompartment = new Compartment(),
+  keymapCompartment = new Compartment();
 /// A merge view manages two editors side-by-side, highlighting the
 /// difference between them and vertically aligning unchanged lines.
 /// If you want one of the editors to be read-only, you have to
@@ -515,19 +518,17 @@ export class MergeView {
       return false;
     };
 
-    // Unified keymap for both editors
-    const unifiedKeymap = keymap.of([
-      { key: "Mod-z", run: unifiedUndo },
-      { key: "Mod-y", run: unifiedRedo },
-      { key: "Mod-Shift-z", run: unifiedRedo },
-    ]);
+    // Create configurable keymap
+    const keymapConfig = config.keymap === false ? [] : 
+    config.keymap ? mergeKeymap(unifiedUndo, unifiedRedo, config.keymap) :
+    defaultMergeKeymap(unifiedUndo, unifiedRedo);
 
     let sharedExtensions = [
       Prec.low(decorateChunks),
       baseTheme,
       externalTheme,
       Spacers,
-      Prec.highest(unifiedKeymap), // Our unified keymap with highest priority
+      keymapCompartment.of(keymapConfig),
       EditorView.updateListener.of((update) => {
         if (
           this.measuring < 0 &&
@@ -714,6 +715,54 @@ export class MergeView {
       if ("renderRevertControl" in config) render = config.renderRevertControl;
       this.setupRevertControls(controls, toA, render);
     }
+       // Handle keymap reconfiguration
+       if ("keymap" in config) {
+        const unifiedUndo = () => {
+          const historyGroups = this.sharedHistory.undoGroup();
+          if (historyGroups && historyGroups.length > 0) {
+            for (const { editor, transactions } of historyGroups.reverse()) {
+              const targetEditor = editor === "a" ? this.a : this.b;
+              for (const transaction of transactions.reverse()) {
+                const inverseChanges = transaction.changes.invert(
+                  transaction.startState.doc
+                );
+                targetEditor.dispatch({
+                  changes: inverseChanges,
+                  userEvent: "undo",
+                  annotations: [Transaction.addToHistory.of(false)],
+                });
+              }
+            }
+            return true;
+          }
+          return false;
+        };
+  
+        const unifiedRedo = () => {
+          const historyGroups = this.sharedHistory.redoGroup();
+          if (historyGroups && historyGroups.length > 0) {
+            for (const { editor, transactions } of historyGroups) {
+              const targetEditor = editor === "a" ? this.a : this.b;
+              for (const transaction of transactions) {
+                targetEditor.dispatch({
+                  changes: transaction.changes,
+                  userEvent: "redo",
+                  annotations: [Transaction.addToHistory.of(false)],
+                });
+              }
+            }
+            return true;
+          }
+          return false;
+        };
+  
+        const keymapConfig = config.keymap === false ? [] : 
+          config.keymap ? mergeKeymap(unifiedUndo, unifiedRedo, config.keymap) :
+          defaultMergeKeymap(unifiedUndo, unifiedRedo);
+  
+        this.a.dispatch({ effects: keymapCompartment.reconfigure(keymapConfig) });
+        this.b.dispatch({ effects: keymapCompartment.reconfigure(keymapConfig) });
+      }
     let highlight = "highlightChanges" in config,
       gutter = "gutter" in config,
       collapse = "collapseUnchanged" in config;
