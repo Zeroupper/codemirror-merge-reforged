@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import MergeViewDemo from "./MergeViewDemo";
 import PerformanceTest from "./PerformanceDemo";
+import React from "react";
 
 function App() {
   const [currentView, setCurrentView] = useState<"demo" | "performance">(
