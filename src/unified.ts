@@ -261,7 +261,7 @@ export function rejectChunk(view: EditorView, pos?: number) {
 /// In a [unified](#merge.unifiedMergeView) merge view, accept all
 /// chunks in a single transaction. This allows undoing all accepts
 /// as one operation and is more efficient than accepting chunks individually.
-export function acceptAllChunks(view: EditorView) {
+export function acceptAllChunksUnifiedView(view: EditorView) {
   let {state} = view
   let chunks = state.field(ChunkField)
   if (!chunks || chunks.length === 0) return false

@@ -237,27 +237,27 @@ const PerformanceTest: React.FC = () => {
 
   return (
     <Container>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">CodeMirror Performance Test</h2>
+      <div className="performance-header">
+        <h2 className="performance-title">CodeMirror Performance Test</h2>
 
-        <div className="flex items-center gap-6 mb-4">
-          <label className="flex items-center gap-2">
-            Editor Count:
+        <div className="performance-controls">
+          <div className="input-group">
+            <label>Editor Count:</label>
             <input
               type="number"
               value={editorCount}
               onChange={(e) =>
                 setEditorCount(Math.max(1, parseInt(e.target.value) || 1))
               }
-              className="border border-gray-300 rounded px-2 py-1 w-20"
+              className="number-input"
               min="1"
               max="1000"
             />
-          </label>
+          </div>
 
-          <div className="flex items-center gap-2">
+          <div className="radio-group">
             <span>View Type:</span>
-            <label className="flex items-center gap-1">
+            <label className="radio-option">
               <input
                 type="radio"
                 value="regular"
@@ -266,7 +266,7 @@ const PerformanceTest: React.FC = () => {
               />
               Regular
             </label>
-            <label className="flex items-center gap-1">
+            <label className="radio-option">
               <input
                 type="radio"
                 value="unified"
@@ -278,26 +278,24 @@ const PerformanceTest: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex gap-2 mb-4">
+        <div className="performance-actions">
           <Button
             onClick={createEditors}
-            className="bg-blue-500 hover:bg-blue-600"
+            variant="primary"
           >
             {isCreating ? "Creating..." : `Create ${viewType} Editors`}
           </Button>
 
           <Button
             onClick={destroyEditors}
-            className="bg-red-500 hover:bg-red-600"
+            variant="primary"
           >
             Destroy All
           </Button>
         </div>
 
-        <div className="mb-4 text-sm text-gray-600">
-          <div>
-            Active Editors: {editors.length} ({viewType})
-          </div>
+        <div className="performance-stats">
+          <div>Active Editors: {editors.length} ({viewType})</div>
           {creationTime && (
             <div>Creation Time: {creationTime.toFixed(2)}ms</div>
           )}
@@ -309,11 +307,7 @@ const PerformanceTest: React.FC = () => {
         </div>
       </div>
 
-      <div
-        ref={containerRef}
-        className="editors-container max-h-96 overflow-y-auto border border-gray-200 rounded p-4"
-        style={{ maxHeight: "600px" }}
-      />
+      <div ref={containerRef} className="editors-container" />
     </Container>
   );
 };

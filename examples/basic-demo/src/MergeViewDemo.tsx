@@ -5,10 +5,12 @@ import Container from "./components/Container";
 import ViewTypeToggle from "./components/ViewTypeToggle";
 import Select from "./components/Select";
 import { history, historyKeymap } from "@codemirror/commands";
-import { MergeView } from "../../../src/mergeview";
-import { unifiedMergeView } from "../../../src/unified";
-import { acceptAllChunks as acceptAllChunksMergeView } from "../../../src/mergeview";
-import { acceptAllChunks as acceptAllChunksUnified } from "../../../src/unified";
+import {
+  acceptAllChunksMergeView,
+  acceptAllChunksUnifiedView,
+  MergeView,
+  unifiedMergeView,
+} from "codemirror-merge-reforged";
 
 interface Example {
   name: string;
@@ -107,24 +109,24 @@ const MergeViewDemo: React.FC = () => {
         doc: example.original,
         extensions: [
           EditorView.lineWrapping,
-          EditorView.theme({
-            ".cm-changeGutter": {
-              width: "4px !important", // Slightly wider to accommodate rounded elements
-              backgroundColor: "transparent !important",
-            },
-          }),
+          // EditorView.theme({
+          //   ".cm-changeGutter": {
+          //     width: "4px !important", // Slightly wider to accommodate rounded elements
+          //     backgroundColor: "transparent !important",
+          //   },
+          // }),
         ],
       },
       b: {
         doc: example.modified,
         extensions: [
-          EditorView.lineWrapping,
-          EditorView.theme({
-            ".cm-changeGutter": {
-              width: "4px !important", // Slightly wider to accommodate rounded elements
-              backgroundColor: "transparent !important",
-            },
-          }),
+          // EditorView.lineWrapping,
+          // EditorView.theme({
+          //   ".cm-changeGutter": {
+          //     width: "4px !important", // Slightly wider to accommodate rounded elements
+          //     backgroundColor: "transparent !important",
+          //   },
+          // }),
         ],
       },
       keymap: {
@@ -196,7 +198,7 @@ const MergeViewDemo: React.FC = () => {
 
     if (viewType === "unified") {
       // For unified view, use the unified acceptAllChunks function
-      acceptAllChunksUnified(viewRef.current as EditorView);
+      acceptAllChunksUnifiedView(viewRef.current as EditorView);
     } else if (viewType === "split") {
       // For split view, use the MergeView acceptAllChunks function
       acceptAllChunksMergeView(viewRef.current as MergeView, "a-to-b");

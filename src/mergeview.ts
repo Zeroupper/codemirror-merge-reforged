@@ -861,7 +861,7 @@ export class MergeView {
 /// Accept all chunks in a merge view in a single transaction.
 /// This allows undoing all accepts as one operation and is more efficient
 /// than accepting chunks individually.
-export function acceptAllChunks(
+export function acceptAllChunksMergeView(
   mergeView: MergeView,
   direction: "a-to-b" | "b-to-a" = "a-to-b"
 ) {
