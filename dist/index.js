@@ -1577,9 +1577,11 @@ class MergeView {
             return false;
         };
         // Create configurable keymap
-        const keymapConfig = config.keymap === false ? [] :
-            config.keymap ? mergeKeymap(unifiedUndo, unifiedRedo, config.keymap) :
-                defaultMergeKeymap(unifiedUndo, unifiedRedo);
+        const keymapConfig = config.keymap === false
+            ? []
+            : config.keymap
+                ? mergeKeymap(unifiedUndo, unifiedRedo, config.keymap)
+                : defaultMergeKeymap(unifiedUndo, unifiedRedo);
         let sharedExtensions = [
             state.Prec.low(decorateChunks),
             baseTheme,
@@ -1771,9 +1773,11 @@ class MergeView {
                 }
                 return false;
             };
-            const keymapConfig = config.keymap === false ? [] :
-                config.keymap ? mergeKeymap(unifiedUndo, unifiedRedo, config.keymap) :
-                    defaultMergeKeymap(unifiedUndo, unifiedRedo);
+            const keymapConfig = config.keymap === false
+                ? []
+                : config.keymap
+                    ? mergeKeymap(unifiedUndo, unifiedRedo, config.keymap)
+                    : defaultMergeKeymap(unifiedUndo, unifiedRedo);
             this.a.dispatch({ effects: keymapCompartment.reconfigure(keymapConfig) });
             this.b.dispatch({ effects: keymapCompartment.reconfigure(keymapConfig) });
         }

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { EditorView } from "@codemirror/view";
-import { basicSetup } from "codemirror";
 import Container from "./components/Container";
 import Button from "./components/Button";
 import { unifiedMergeView } from "../../../src/unified";
@@ -167,7 +166,6 @@ const PerformanceTest: React.FC = () => {
         editorDiv.style.overflow = "auto";
 
         const extensions = [
-          basicSetup,
           EditorView.theme({
             "&": { height: "100%" },
             ".cm-scroller": { overflow: "auto" },
@@ -279,23 +277,19 @@ const PerformanceTest: React.FC = () => {
         </div>
 
         <div className="performance-actions">
-          <Button
-            onClick={createEditors}
-            variant="primary"
-          >
+          <Button onClick={createEditors} variant="primary">
             {isCreating ? "Creating..." : `Create ${viewType} Editors`}
           </Button>
 
-          <Button
-            onClick={destroyEditors}
-            variant="primary"
-          >
+          <Button onClick={destroyEditors} variant="primary">
             Destroy All
           </Button>
         </div>
 
         <div className="performance-stats">
-          <div>Active Editors: {editors.length} ({viewType})</div>
+          <div>
+            Active Editors: {editors.length} ({viewType})
+          </div>
           {creationTime && (
             <div>Creation Time: {creationTime.toFixed(2)}ms</div>
           )}
