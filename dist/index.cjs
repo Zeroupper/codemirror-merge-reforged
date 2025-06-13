@@ -1,9 +1,11 @@
-import { EditorView, ViewPlugin, gutter, Decoration, GutterMarker, WidgetType, keymap } from '@codemirror/view';
-import { Facet, StateEffect, StateField, EditorSelection, Prec, RangeSet, RangeSetBuilder, Compartment, EditorState, ChangeSet, Transaction, Text } from '@codemirror/state';
-import { StyleModule } from 'style-mod';
-import { language, highlightingFor } from '@codemirror/language';
-import { highlightTree } from '@lezer/highlight';
-import { invertedEffects } from '@codemirror/commands';
+'use strict';
+
+var view = require('@codemirror/view');
+var state = require('@codemirror/state');
+var styleMod = require('style-mod');
+var language = require('@codemirror/language');
+var highlight = require('@lezer/highlight');
+var commands = require('@codemirror/commands');
 
 // This algorithm was heavily inspired by Neil Fraser's
 // diff-match-patch library. See https://github.com/google/diff-match-patch/
@@ -167,7 +169,7 @@ class Frontier {
     }
 }
 // Reused across calls to avoid growing the vectors again and again
-const frontier1 = /*@__PURE__*/new Frontier, frontier2 = /*@__PURE__*/new Frontier;
+const frontier1 = new Frontier, frontier2 = new Frontier;
 // Given a position in both strings, recursively call `findDiff` with
 // the sub-problems before and after that position. Make sure cut
 // points lie on character boundaries.
@@ -412,7 +414,7 @@ function makePresentable(changes, a, b) {
 }
 let wordChar;
 try {
-    wordChar = /*@__PURE__*/new RegExp("[\\p{Alphabetic}\\p{Number}]", "u");
+    wordChar = new RegExp("[\\p{Alphabetic}\\p{Number}]", "u");
 }
 catch (_) { }
 function asciiWordChar(code) {
@@ -697,11 +699,11 @@ function updateChunks(ranges, chunks, a, b, conf) {
 }
 const defaultDiffConfig = { scanLimit: 500 };
 
-const mergeConfig = /*@__PURE__*/Facet.define({
+const mergeConfig = state.Facet.define({
     combine: (values) => values[0],
 });
-const setChunks = /*@__PURE__*/StateEffect.define();
-const ChunkField = /*@__PURE__*/StateField.define({
+const setChunks = state.StateEffect.define();
+const ChunkField = state.StateField.define({
     create(_) {
         return null;
     },
@@ -725,11 +727,11 @@ function getChunks(state) {
     let conf = state.facet(mergeConfig);
     return { chunks: field, side: conf ? conf.side : null };
 }
-let moveByChunk = (dir) => ({ state, dispatch }) => {
-    let chunks = state.field(ChunkField, false), conf = state.facet(mergeConfig);
+let moveByChunk = (dir) => ({ state: state$1, dispatch }) => {
+    let chunks = state$1.field(ChunkField, false), conf = state$1.facet(mergeConfig);
     if (!chunks || !chunks.length || !conf)
         return false;
-    let { head } = state.selection.main, pos = 0;
+    let { head } = state$1.selection.main, pos = 0;
     for (let i = chunks.length - 1; i >= 0; i--) {
         let chunk = chunks[i];
         let [from, to] = conf.side == "b" ? [chunk.fromB, chunk.toB] : [chunk.fromA, chunk.toA];
@@ -746,23 +748,23 @@ let moveByChunk = (dir) => ({ state, dispatch }) => {
     }
     let next = chunks[(pos + (dir < 0 ? chunks.length - 1 : 0)) % chunks.length];
     let [from, to] = conf.side == "b" ? [next.fromB, next.toB] : [next.fromA, next.toA];
-    dispatch(state.update({
+    dispatch(state$1.update({
         selection: { anchor: from },
         userEvent: "select.byChunk",
-        effects: EditorView.scrollIntoView(EditorSelection.range(to, from)),
+        effects: view.EditorView.scrollIntoView(state.EditorSelection.range(to, from)),
     }));
     return true;
 };
 /**
 Move the selection to the next changed chunk.
 */
-const goToNextChunk = /*@__PURE__*/moveByChunk(1);
+const goToNextChunk = moveByChunk(1);
 /**
 Move the selection to the previous changed chunk.
 */
-const goToPreviousChunk = /*@__PURE__*/moveByChunk(-1);
+const goToPreviousChunk = moveByChunk(-1);
 
-const decorateChunks = /*@__PURE__*/ViewPlugin.fromClass(class {
+const decorateChunks = view.ViewPlugin.fromClass(class {
     constructor(view) {
         ({ deco: this.deco, gutter: this.gutter } = getChunkDeco(view));
     }
@@ -774,9 +776,9 @@ const decorateChunks = /*@__PURE__*/ViewPlugin.fromClass(class {
 }, {
     decorations: d => d.deco
 });
-const changeGutter = /*@__PURE__*/Prec.low(/*@__PURE__*/gutter({
+const changeGutter = state.Prec.low(view.gutter({
     class: "cm-changeGutter",
-    markers: view => { var _a; return ((_a = view.plugin(decorateChunks)) === null || _a === void 0 ? void 0 : _a.gutter) || RangeSet.empty; }
+    markers: view => { var _a; return ((_a = view.plugin(decorateChunks)) === null || _a === void 0 ? void 0 : _a.gutter) || state.RangeSet.empty; }
 }));
 function chunksChanged(s1, s2) {
     return s1.field(ChunkField, false) != s2.field(ChunkField, false);
@@ -784,11 +786,11 @@ function chunksChanged(s1, s2) {
 function configChanged(s1, s2) {
     return s1.facet(mergeConfig) != s2.facet(mergeConfig);
 }
-const changedLine = /*@__PURE__*/Decoration.line({ class: "cm-changedLine" });
-const changedText = /*@__PURE__*/Decoration.mark({ class: "cm-changedText" });
-const inserted = /*@__PURE__*/Decoration.mark({ tagName: "ins", class: "cm-insertedLine" });
-const deleted = /*@__PURE__*/Decoration.mark({ tagName: "del", class: "cm-deletedLine" });
-const changedLineGutterMarker = /*@__PURE__*/new class extends GutterMarker {
+const changedLine = view.Decoration.line({ class: "cm-changedLine" });
+const changedText = view.Decoration.mark({ class: "cm-changedText" });
+const inserted = view.Decoration.mark({ tagName: "ins", class: "cm-insertedLine" });
+const deleted = view.Decoration.mark({ tagName: "del", class: "cm-deletedLine" });
+const changedLineGutterMarker = new class extends view.GutterMarker {
     constructor() {
         super(...arguments);
         this.elementClass = "cm-changedLineGutter";
@@ -831,8 +833,8 @@ function buildChunkDeco(chunk, doc, isA, highlight, builder, gutterBuilder) {
 function getChunkDeco(view) {
     let chunks = view.state.field(ChunkField);
     let { side, highlightChanges, markGutter, overrideChunk } = view.state.facet(mergeConfig), isA = side == "a";
-    let builder = new RangeSetBuilder();
-    let gutterBuilder = markGutter ? new RangeSetBuilder() : null;
+    let builder = new state.RangeSetBuilder();
+    let gutterBuilder = markGutter ? new state.RangeSetBuilder() : null;
     let { from, to } = view.viewport;
     for (let chunk of chunks) {
         if ((isA ? chunk.fromA : chunk.fromB) >= to)
@@ -844,7 +846,7 @@ function getChunkDeco(view) {
     }
     return { deco: builder.finish(), gutter: gutterBuilder && gutterBuilder.finish() };
 }
-class Spacer extends WidgetType {
+class Spacer extends view.WidgetType {
     constructor(height) {
         super();
         this.height = height;
@@ -863,18 +865,18 @@ class Spacer extends WidgetType {
     get estimatedHeight() { return this.height; }
     ignoreEvent() { return false; }
 }
-const adjustSpacers = /*@__PURE__*/StateEffect.define({
+const adjustSpacers = state.StateEffect.define({
     map: (value, mapping) => value.map(mapping)
 });
-const Spacers = /*@__PURE__*/StateField.define({
-    create: () => Decoration.none,
+const Spacers = state.StateField.define({
+    create: () => view.Decoration.none,
     update: (spacers, tr) => {
         for (let e of tr.effects)
             if (e.is(adjustSpacers))
                 return e.value;
         return spacers.map(tr.changes);
     },
-    provide: f => EditorView.decorations.from(f)
+    provide: f => view.EditorView.decorations.from(f)
 });
 const epsilon = .01;
 function compareSpacers(a, b) {
@@ -891,7 +893,7 @@ function compareSpacers(a, b) {
     return true;
 }
 function updateSpacers(a, b, chunks) {
-    let buildA = new RangeSetBuilder(), buildB = new RangeSetBuilder();
+    let buildA = new state.RangeSetBuilder(), buildB = new state.RangeSetBuilder();
     let spacersA = a.state.field(Spacers).iter(), spacersB = b.state.field(Spacers).iter();
     let posA = 0, posB = 0, offA = 0, offB = 0, vpA = a.viewport, vpB = b.viewport;
     for (let chunkI = 0;; chunkI++) {
@@ -904,7 +906,7 @@ function updateSpacers(a, b, chunks) {
             let diff = heightA - heightB;
             if (diff < -epsilon) {
                 offA -= diff;
-                buildA.add(posA, posA, Decoration.widget({
+                buildA.add(posA, posA, view.Decoration.widget({
                     widget: new Spacer(-diff),
                     block: true,
                     side: -1
@@ -912,7 +914,7 @@ function updateSpacers(a, b, chunks) {
             }
             else if (diff > epsilon) {
                 offB += diff;
-                buildB.add(posB, posB, Decoration.widget({
+                buildB.add(posB, posB, view.Decoration.widget({
                     widget: new Spacer(diff),
                     block: true,
                     side: -1
@@ -955,14 +957,14 @@ function updateSpacers(a, b, chunks) {
     }
     let docDiff = (a.contentHeight + offA) - (b.contentHeight + offB);
     if (docDiff < epsilon) {
-        buildA.add(a.state.doc.length, a.state.doc.length, Decoration.widget({
+        buildA.add(a.state.doc.length, a.state.doc.length, view.Decoration.widget({
             widget: new Spacer(-docDiff),
             block: true,
             side: 1
         }));
     }
     else if (docDiff > epsilon) {
-        buildB.add(b.state.doc.length, b.state.doc.length, Decoration.widget({
+        buildB.add(b.state.doc.length, b.state.doc.length, view.Decoration.widget({
             widget: new Spacer(docDiff),
             block: true,
             side: 1
@@ -978,10 +980,10 @@ function updateSpacers(a, b, chunks) {
 A state effect that expands the section of collapsed unchanged
 code starting at the given position.
 */
-const uncollapseUnchanged = /*@__PURE__*/StateEffect.define({
+const uncollapseUnchanged = state.StateEffect.define({
     map: (value, change) => change.mapPos(value)
 });
-class CollapseWidget extends WidgetType {
+class CollapseWidget extends view.WidgetType {
     constructor(lines) {
         super();
         this.lines = lines;
@@ -1013,8 +1015,8 @@ function mapPos(pos, chunks, isA) {
         [startOur, startOther] = isA ? [next.toA, next.toB] : [next.toB, next.toA];
     }
 }
-const CollapsedRanges = /*@__PURE__*/StateField.define({
-    create(state) { return Decoration.none; },
+const CollapsedRanges = state.StateField.define({
+    create(state) { return view.Decoration.none; },
     update(deco, tr) {
         deco = deco.map(tr.changes);
         for (let e of tr.effects)
@@ -1022,35 +1024,35 @@ const CollapsedRanges = /*@__PURE__*/StateField.define({
                 deco = deco.update({ filter: from => from != e.value });
         return deco;
     },
-    provide: f => EditorView.decorations.from(f)
+    provide: f => view.EditorView.decorations.from(f)
 });
 function collapseUnchanged({ margin = 3, minSize = 4 }) {
     return CollapsedRanges.init(state => buildCollapsedRanges(state, margin, minSize));
 }
-function buildCollapsedRanges(state, margin, minLines) {
-    let builder = new RangeSetBuilder();
-    let isA = state.facet(mergeConfig).side == "a";
-    let chunks = state.field(ChunkField);
+function buildCollapsedRanges(state$1, margin, minLines) {
+    let builder = new state.RangeSetBuilder();
+    let isA = state$1.facet(mergeConfig).side == "a";
+    let chunks = state$1.field(ChunkField);
     let prevLine = 1;
     for (let i = 0;; i++) {
         let chunk = i < chunks.length ? chunks[i] : null;
         let collapseFrom = i ? prevLine + margin : 1;
-        let collapseTo = chunk ? state.doc.lineAt(isA ? chunk.fromA : chunk.fromB).number - 1 - margin : state.doc.lines;
+        let collapseTo = chunk ? state$1.doc.lineAt(isA ? chunk.fromA : chunk.fromB).number - 1 - margin : state$1.doc.lines;
         let lines = collapseTo - collapseFrom + 1;
         if (lines >= minLines) {
-            builder.add(state.doc.line(collapseFrom).from, state.doc.line(collapseTo).to, Decoration.replace({
+            builder.add(state$1.doc.line(collapseFrom).from, state$1.doc.line(collapseTo).to, view.Decoration.replace({
                 widget: new CollapseWidget(lines),
                 block: true
             }));
         }
         if (!chunk)
             break;
-        prevLine = state.doc.lineAt(Math.min(state.doc.length, isA ? chunk.toA : chunk.toB)).number;
+        prevLine = state$1.doc.lineAt(Math.min(state$1.doc.length, isA ? chunk.toA : chunk.toB)).number;
     }
     return builder.finish();
 }
 
-const externalTheme = /*@__PURE__*/EditorView.styleModule.of(/*@__PURE__*/new StyleModule({
+const externalTheme = view.EditorView.styleModule.of(new styleMod.StyleModule({
     ".cm-mergeView": {
         overflowY: "auto",
     },
@@ -1081,7 +1083,7 @@ const externalTheme = /*@__PURE__*/EditorView.styleModule.of(/*@__PURE__*/new St
         cursor: "pointer"
     }
 }));
-const baseTheme = /*@__PURE__*/EditorView.baseTheme({
+const baseTheme = view.EditorView.baseTheme({
     ".cm-mergeView & .cm-scroller, .cm-mergeView &": {
         height: "auto !important",
         overflowY: "visible !important"
@@ -1170,9 +1172,9 @@ function mergeKeymap(undoCommand, redoCommand, config = {}) {
     for (const redoKey of redoKeys) {
         bindings.push({ key: redoKey, run: redoCommand });
     }
-    const keymapExt = keymap.of(bindings);
+    const keymapExt = view.keymap.of(bindings);
     return config.highPrecedence !== false
-        ? Prec.highest(keymapExt)
+        ? state.Prec.highest(keymapExt)
         : keymapExt;
 }
 /**
@@ -1381,7 +1383,7 @@ class SharedHistory {
         };
     }
 }
-const collapseCompartment = /*@__PURE__*/new Compartment(), configCompartment = /*@__PURE__*/new Compartment(), keymapCompartment = /*@__PURE__*/new Compartment();
+const collapseCompartment = new state.Compartment(), configCompartment = new state.Compartment(), keymapCompartment = new state.Compartment();
 /**
 A merge view manages two editors side-by-side, highlighting the
 difference between them and vertically aligning unchanged lines.
@@ -1421,7 +1423,7 @@ class MergeView {
                         targetEditor.dispatch({
                             changes: inverseChanges,
                             userEvent: "undo",
-                            annotations: [Transaction.addToHistory.of(false)],
+                            annotations: [state.Transaction.addToHistory.of(false)],
                         });
                     }
                 }
@@ -1450,7 +1452,7 @@ class MergeView {
                         targetEditor.dispatch({
                             changes: transaction.changes,
                             userEvent: "redo",
-                            annotations: [Transaction.addToHistory.of(false)],
+                            annotations: [state.Transaction.addToHistory.of(false)],
                         });
                     }
                 }
@@ -1469,12 +1471,12 @@ class MergeView {
                 ? mergeKeymap(unifiedUndo, unifiedRedo, config.keymap)
                 : defaultMergeKeymap(unifiedUndo, unifiedRedo);
         let sharedExtensions = [
-            Prec.low(decorateChunks),
+            state.Prec.low(decorateChunks),
             baseTheme,
             externalTheme,
             Spacers,
             keymapCompartment.of(keymapConfig),
-            EditorView.updateListener.of((update) => {
+            view.EditorView.updateListener.of((update) => {
                 if (this.measuring < 0 &&
                     (update.heightChanged || update.viewportChanged) &&
                     !update.transactions.some((tr) => tr.effects.some((e) => e.is(adjustSpacers))))
@@ -1491,12 +1493,12 @@ class MergeView {
         ];
         if (config.gutter !== false)
             configA.push(changeGutter);
-        let stateA = EditorState.create({
+        let stateA = state.EditorState.create({
             doc: config.a.doc,
             selection: config.a.selection,
             extensions: [
                 config.a.extensions || [],
-                EditorView.editorAttributes.of({ class: "cm-merge-a" }),
+                view.EditorView.editorAttributes.of({ class: "cm-merge-a" }),
                 configCompartment.of(configA),
                 // Remove individual history - we'll handle it ourselves
                 sharedExtensions,
@@ -1512,12 +1514,12 @@ class MergeView {
         ];
         if (config.gutter !== false)
             configB.push(changeGutter);
-        let stateB = EditorState.create({
+        let stateB = state.EditorState.create({
             doc: config.b.doc,
             selection: config.b.selection,
             extensions: [
                 config.b.extensions || [],
-                EditorView.editorAttributes.of({ class: "cm-merge-b" }),
+                view.EditorView.editorAttributes.of({ class: "cm-merge-b" }),
                 configCompartment.of(configB),
                 // Remove individual history - we'll handle it ourselves
                 sharedExtensions,
@@ -1530,8 +1532,8 @@ class MergeView {
                 ? collapseUnchanged(config.collapseUnchanged)
                 : []),
         ];
-        stateA = stateA.update({ effects: StateEffect.appendConfig.of(add) }).state;
-        stateB = stateB.update({ effects: StateEffect.appendConfig.of(add) }).state;
+        stateA = stateA.update({ effects: state.StateEffect.appendConfig.of(add) }).state;
+        stateB = stateB.update({ effects: state.StateEffect.appendConfig.of(add) }).state;
         this.dom = document.createElement("div");
         this.dom.className = "cm-mergeView";
         this.editorDOM = this.dom.appendChild(document.createElement("div"));
@@ -1543,13 +1545,13 @@ class MergeView {
         wrapB.className = "cm-mergeViewEditor";
         this.editorDOM.appendChild(orientation == "a-b" ? wrapA : wrapB);
         this.editorDOM.appendChild(orientation == "a-b" ? wrapB : wrapA);
-        this.a = new EditorView({
+        this.a = new view.EditorView({
             state: stateA,
             parent: wrapA,
             root: config.root,
             dispatchTransactions: (trs) => this.dispatch(trs, this.a),
         });
-        this.b = new EditorView({
+        this.b = new view.EditorView({
             state: stateB,
             parent: wrapB,
             root: config.root,
@@ -1563,10 +1565,10 @@ class MergeView {
     dispatch(trs, target) {
         if (trs.some((tr) => tr.docChanged)) {
             let last = trs[trs.length - 1];
-            let changes = trs.reduce((chs, tr) => chs.compose(tr.changes), ChangeSet.empty(trs[0].startState.doc.length));
+            let changes = trs.reduce((chs, tr) => chs.compose(tr.changes), state.ChangeSet.empty(trs[0].startState.doc.length));
             // Check if this is an undo/redo transaction - don't add to history
-            const userEvent = last.annotation(Transaction.userEvent);
-            const addToHistory = last.annotation(Transaction.addToHistory);
+            const userEvent = last.annotation(state.Transaction.userEvent);
+            const addToHistory = last.annotation(state.Transaction.addToHistory);
             const isUndoRedo = userEvent === "undo" || userEvent === "redo" || addToHistory === false;
             console.log(`Dispatch: editor ${target === this.a ? "a" : "b"}, userEvent: ${userEvent}, addToHistory: ${addToHistory}, isUndoRedo: ${isUndoRedo}`);
             // Only add to shared history if it's not an undo/redo operation
@@ -1636,7 +1638,7 @@ class MergeView {
                             targetEditor.dispatch({
                                 changes: inverseChanges,
                                 userEvent: "undo",
-                                annotations: [Transaction.addToHistory.of(false)],
+                                annotations: [state.Transaction.addToHistory.of(false)],
                             });
                         }
                     }
@@ -1653,7 +1655,7 @@ class MergeView {
                             targetEditor.dispatch({
                                 changes: transaction.changes,
                                 userEvent: "redo",
-                                annotations: [Transaction.addToHistory.of(false)],
+                                annotations: [state.Transaction.addToHistory.of(false)],
                             });
                         }
                     }
@@ -1858,15 +1860,15 @@ function rm(elt) {
     return next;
 }
 
-const deletedChunkGutterMarker = /*@__PURE__*/new class extends GutterMarker {
+const deletedChunkGutterMarker = new class extends view.GutterMarker {
     constructor() {
         super(...arguments);
         this.elementClass = "cm-deletedLineGutter";
     }
 };
-const unifiedChangeGutter = /*@__PURE__*/Prec.low(/*@__PURE__*/gutter({
+const unifiedChangeGutter = state.Prec.low(view.gutter({
     class: "cm-changeGutter",
-    markers: view => { var _a; return ((_a = view.plugin(decorateChunks)) === null || _a === void 0 ? void 0 : _a.gutter) || RangeSet.empty; },
+    markers: view => { var _a; return ((_a = view.plugin(decorateChunks)) === null || _a === void 0 ? void 0 : _a.gutter) || state.RangeSet.empty; },
     widgetMarker: (_, widget) => widget instanceof DeletionWidget ? deletedChunkGutterMarker : null
 }));
 /**
@@ -1876,14 +1878,14 @@ chunks will be highlighted, with uneditable widgets displaying the
 original text displayed above the new text.
 */
 function unifiedMergeView(config) {
-    let orig = typeof config.original == "string" ? Text.of(config.original.split(/\r?\n/)) : config.original;
+    let orig = typeof config.original == "string" ? state.Text.of(config.original.split(/\r?\n/)) : config.original;
     let diffConf = config.diffConfig || defaultDiffConfig;
     return [
-        Prec.low(decorateChunks),
+        state.Prec.low(decorateChunks),
         deletedChunks,
         baseTheme,
-        EditorView.editorAttributes.of({ class: "cm-merge-b" }),
-        EditorState.transactionExtender.of(tr => {
+        view.EditorView.editorAttributes.of({ class: "cm-merge-b" }),
+        state.EditorState.transactionExtender.of(tr => {
             let updateDoc = tr.effects.find(e => e.is(updateOriginalDoc));
             if (!tr.docChanged && !updateDoc)
                 return null;
@@ -1892,7 +1894,7 @@ function unifiedMergeView(config) {
                 : Chunk.updateB(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf);
             return { effects: setChunks.of(chunks) };
         }),
-        invertedEffects.of(tr => {
+        commands.invertedEffects.of(tr => {
             let effects = [];
             for (let effect of tr.effects) {
                 if (effect.is(updateOriginalDoc)) {
@@ -1923,7 +1925,7 @@ function unifiedMergeView(config) {
 The state effect used to signal changes in the original doc in a
 unified merge view.
 */
-const updateOriginalDoc = /*@__PURE__*/StateEffect.define();
+const updateOriginalDoc = state.StateEffect.define();
 /**
 Create an effect that, when added to a transaction on a unified
 merge view, will update the original document that's being compared against.
@@ -1931,8 +1933,8 @@ merge view, will update the original document that's being compared against.
 function originalDocChangeEffect(state, changes) {
     return updateOriginalDoc.of({ doc: changes.apply(getOriginalDoc(state)), changes });
 }
-const originalDoc = /*@__PURE__*/StateField.define({
-    create: () => Text.empty,
+const originalDoc = state.StateField.define({
+    create: () => state.Text.empty,
     update(doc, tr) {
         for (let e of tr.effects)
             if (e.is(updateOriginalDoc))
@@ -1946,8 +1948,8 @@ Get the original document from a unified merge editor's state.
 function getOriginalDoc(state) {
     return state.field(originalDoc);
 }
-const DeletionWidgets = /*@__PURE__*/new WeakMap;
-class DeletionWidget extends WidgetType {
+const DeletionWidgets = new WeakMap;
+class DeletionWidget extends view.WidgetType {
     constructor(buildDOM) {
         super();
         this.buildDOM = buildDOM;
@@ -1979,7 +1981,7 @@ function deletionWidget(state, chunk, hideContent) {
         if (hideContent || chunk.fromA >= chunk.toA)
             return dom;
         let text = view.state.field(originalDoc).sliceString(chunk.fromA, chunk.endA);
-        let lang = syntaxHighlightDeletions && state.facet(language);
+        let lang = syntaxHighlightDeletions && state.facet(language.language);
         let line = makeLine();
         let changes = chunk.changes, changeI = 0, inside = false;
         function makeLine() {
@@ -2027,7 +2029,7 @@ function deletionWidget(state, chunk, hideContent) {
         }
         if (lang && chunk.toA - chunk.fromA <= syntaxHighlightDeletionsMaxLength) {
             let tree = lang.parser.parse(text), pos = 0;
-            highlightTree(tree, { style: tags => highlightingFor(state, tags) }, (from, to, cls) => {
+            highlight.highlightTree(tree, { style: tags => language.highlightingFor(state, tags) }, (from, to, cls) => {
                 if (from > pos)
                     add(pos, from, "");
                 add(from, to, cls);
@@ -2042,7 +2044,7 @@ function deletionWidget(state, chunk, hideContent) {
             line.appendChild(document.createElement("br"));
         return dom;
     };
-    let deco = Decoration.widget({
+    let deco = view.Decoration.widget({
         block: true,
         side: -1,
         widget: new DeletionWidget(buildDOM)
@@ -2056,7 +2058,7 @@ chunk under the given position or the cursor. This chunk will no
 longer be highlighted unless it is edited again.
 */
 function acceptChunk(view, pos) {
-    let { state } = view, at = pos !== null && pos !== void 0 ? pos : state.selection.main.head;
+    let { state: state$1 } = view, at = pos !== null && pos !== void 0 ? pos : state$1.selection.main.head;
     let chunk = view.state.field(ChunkField).find(ch => ch.fromB <= at && ch.endB >= at);
     if (!chunk)
         return false;
@@ -2064,7 +2066,7 @@ function acceptChunk(view, pos) {
     let orig = view.state.field(originalDoc);
     if (chunk.fromB != chunk.toB && chunk.toA <= orig.length)
         insert += view.state.lineBreak;
-    let changes = ChangeSet.of({ from: chunk.fromA, to: Math.min(orig.length, chunk.toA), insert }, orig.length);
+    let changes = state.ChangeSet.of({ from: chunk.fromA, to: Math.min(orig.length, chunk.toA), insert }, orig.length);
     view.dispatch({
         effects: updateOriginalDoc.of({ doc: changes.apply(orig), changes }),
         userEvent: "accept"
@@ -2097,18 +2099,18 @@ chunks in a single transaction. This allows undoing all accepts
 as one operation and is more efficient than accepting chunks individually.
 */
 function acceptAllChunksUnifiedView(view) {
-    let { state } = view;
-    let chunks = state.field(ChunkField);
+    let { state: state$1 } = view;
+    let chunks = state$1.field(ChunkField);
     if (!chunks || chunks.length === 0)
         return false;
-    let orig = state.field(originalDoc);
+    let orig = state$1.field(originalDoc);
     let changes = [];
     // Process chunks in reverse order to maintain correct positions
     for (let i = chunks.length - 1; i >= 0; i--) {
         let chunk = chunks[i];
-        let insert = state.sliceDoc(chunk.fromB, Math.max(chunk.fromB, chunk.toB - 1));
+        let insert = state$1.sliceDoc(chunk.fromB, Math.max(chunk.fromB, chunk.toB - 1));
         if (chunk.fromB != chunk.toB && chunk.toA <= orig.length)
-            insert += state.lineBreak;
+            insert += state$1.lineBreak;
         changes.push({
             from: chunk.fromA,
             to: Math.min(orig.length, chunk.toA),
@@ -2116,29 +2118,29 @@ function acceptAllChunksUnifiedView(view) {
         });
     }
     // Combine all changes into a single ChangeSet
-    let combinedChanges = ChangeSet.of(changes, orig.length);
+    let combinedChanges = state.ChangeSet.of(changes, orig.length);
     view.dispatch({
         effects: updateOriginalDoc.of({ doc: combinedChanges.apply(orig), changes: combinedChanges }),
         userEvent: "accept.all"
     });
     return true;
 }
-function buildDeletedChunks(state) {
-    let builder = new RangeSetBuilder();
-    for (let ch of state.field(ChunkField)) {
-        let hide = state.facet(mergeConfig).overrideChunk && chunkCanDisplayInline(state, ch);
-        builder.add(ch.fromB, ch.fromB, deletionWidget(state, ch, !!hide));
+function buildDeletedChunks(state$1) {
+    let builder = new state.RangeSetBuilder();
+    for (let ch of state$1.field(ChunkField)) {
+        let hide = state$1.facet(mergeConfig).overrideChunk && chunkCanDisplayInline(state$1, ch);
+        builder.add(ch.fromB, ch.fromB, deletionWidget(state$1, ch, !!hide));
     }
     return builder.finish();
 }
-const deletedChunks = /*@__PURE__*/StateField.define({
+const deletedChunks = state.StateField.define({
     create: state => buildDeletedChunks(state),
     update(deco, tr) {
         return tr.state.field(ChunkField, false) != tr.startState.field(ChunkField, false) ? buildDeletedChunks(tr.state) : deco;
     },
-    provide: f => EditorView.decorations.from(f)
+    provide: f => view.EditorView.decorations.from(f)
 });
-const InlineChunkCache = /*@__PURE__*/new WeakMap();
+const InlineChunkCache = new WeakMap();
 function chunkCanDisplayInline(state, chunk) {
     let result = InlineChunkCache.get(chunk);
     if (result !== undefined)
@@ -2156,7 +2158,7 @@ function chunkCanDisplayInline(state, chunk) {
                 let deleted = a.sliceString(bA + ch.fromA, bA + ch.toA);
                 if (/\n/.test(deleted))
                     break abort;
-                deco.push(Decoration.widget({ widget: new InlineDeletion(deleted), side: -1 }).range(bB + ch.fromB));
+                deco.push(view.Decoration.widget({ widget: new InlineDeletion(deleted), side: -1 }).range(bB + ch.fromB));
             }
             if (ch.fromB < ch.toB) {
                 deco.push(changedText.range(bB + ch.fromB, bB + ch.toB));
@@ -2168,7 +2170,7 @@ function chunkCanDisplayInline(state, chunk) {
     InlineChunkCache.set(chunk, result);
     return result;
 }
-class InlineDeletion extends WidgetType {
+class InlineDeletion extends view.WidgetType {
     constructor(text) {
         super();
         this.text = text;
@@ -2181,13 +2183,13 @@ class InlineDeletion extends WidgetType {
         return elt;
     }
 }
-const inlineChangedLineGutterMarker = /*@__PURE__*/new class extends GutterMarker {
+const inlineChangedLineGutterMarker = new class extends view.GutterMarker {
     constructor() {
         super(...arguments);
         this.elementClass = "cm-inlineChangedLineGutter";
     }
 };
-const inlineChangedLine = /*@__PURE__*/Decoration.line({ class: "cm-inlineChangedLine" });
+const inlineChangedLine = view.Decoration.line({ class: "cm-inlineChangedLine" });
 function overrideChunkInline(state, chunk, builder, gutterBuilder) {
     let inline = chunkCanDisplayInline(state, chunk), i = 0;
     if (!inline)
@@ -2207,4 +2209,20 @@ function overrideChunkInline(state, chunk, builder, gutterBuilder) {
     return true;
 }
 
-export { Chunk, MergeView, acceptAllChunksMergeView, acceptAllChunksUnifiedView, acceptChunk, defaultMergeKeymap, diff, getChunks, getOriginalDoc, goToNextChunk, goToPreviousChunk, mergeKeymap, originalDocChangeEffect, presentableDiff, rejectChunk, unifiedMergeView, updateOriginalDoc };
+exports.Chunk = Chunk;
+exports.MergeView = MergeView;
+exports.acceptAllChunksMergeView = acceptAllChunksMergeView;
+exports.acceptAllChunksUnifiedView = acceptAllChunksUnifiedView;
+exports.acceptChunk = acceptChunk;
+exports.defaultMergeKeymap = defaultMergeKeymap;
+exports.diff = diff;
+exports.getChunks = getChunks;
+exports.getOriginalDoc = getOriginalDoc;
+exports.goToNextChunk = goToNextChunk;
+exports.goToPreviousChunk = goToPreviousChunk;
+exports.mergeKeymap = mergeKeymap;
+exports.originalDocChangeEffect = originalDocChangeEffect;
+exports.presentableDiff = presentableDiff;
+exports.rejectChunk = rejectChunk;
+exports.unifiedMergeView = unifiedMergeView;
+exports.updateOriginalDoc = updateOriginalDoc;
