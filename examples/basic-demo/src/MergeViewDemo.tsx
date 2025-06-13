@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { EditorView, keymap } from "@codemirror/view";
+import { StateEffect, Transaction, Text } from "@codemirror/state";
 import EditorContainer from "./components/EditorContainer";
 import Container from "./components/Container";
 import ViewTypeToggle from "./components/ViewTypeToggle";
@@ -10,7 +11,9 @@ import {
   acceptAllChunksUnifiedView,
   MergeView,
   unifiedMergeView,
+  getOriginalDoc,
 } from "codemirror-merge-reforged";
+import { ChunkField } from "../../../src/merge";
 
 interface Example {
   name: string;
@@ -21,17 +24,16 @@ interface Example {
 const examples: Record<string, Example> = {
   javascript: {
     name: "JavaScript Functions",
-    original: `function hello() {
+    original: `function helloWorld() {
     console.log("Hello World!");
     return true;
 }
 
 const name = "Alice";
 console.log("Welcome " + name);`,
-    modified: `function hello(name = "World") {
-    console.log("Hello " + name + "!");
-    console.log("This is a new line");
-    return true;
+    modified: `function helloNew() {
+    console.log("Hello!");
+    return false;
 }
 
 const userName = "Bob";
@@ -96,89 +98,136 @@ type ViewType = "split" | "unified";
 const MergeViewDemo: React.FC = () => {
   const [viewType, setViewType] = useState<ViewType>("split");
   const [selectedExample, setSelectedExample] = useState<string>("javascript");
+  const [eventLog, setEventLog] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<MergeView | EditorView | null>(null);
 
-  const createSplitView = (example: Example) => {
+  // Shared document content for both views
+  const docsRef = useRef<{
+    original: Text;
+    modified: Text;
+  }>({
+    original: Text.of(examples.javascript.original.split(/\r?\n/)),
+    modified: Text.of(examples.javascript.modified.split(/\r?\n/)),
+  });
+
+  // Reset shared docs when example changes
+  useEffect(() => {
+    const example = examples[selectedExample];
+    docsRef.current = {
+      original: Text.of(example.original.split(/\r?\n/)),
+      modified: Text.of(example.modified.split(/\r?\n/)),
+    };
+  }, [selectedExample]);
+
+  const createSplitView = () => {
     if (!containerRef.current) return;
 
     containerRef.current.innerHTML = "";
+    const { original, modified } = docsRef.current;
 
     viewRef.current = new MergeView({
       a: {
-        doc: example.original,
+        doc: original,
         extensions: [
+          history(),
+          keymap.of(historyKeymap),
           EditorView.lineWrapping,
-          // EditorView.theme({
-          //   ".cm-changeGutter": {
-          //     width: "4px !important", // Slightly wider to accommodate rounded elements
-          //     backgroundColor: "transparent !important",
-          //   },
-          // }),
         ],
       },
       b: {
-        doc: example.modified,
+        doc: modified,
         extensions: [
-          // EditorView.lineWrapping,
-          // EditorView.theme({
-          //   ".cm-changeGutter": {
-          //     width: "4px !important", // Slightly wider to accommodate rounded elements
-          //     backgroundColor: "transparent !important",
-          //   },
-          // }),
+          history(),
+          keymap.of(historyKeymap),
+          EditorView.lineWrapping,
         ],
-      },
-      keymap: {
-        undo: "Mod-z",
-        redo: "Mod-y",
       },
       parent: containerRef.current,
       revertControls: "a-to-b",
       highlightChanges: true,
       gutter: true,
     });
+
+    // Update shared docs when editors change
+    const recordChanges = (side: "a" | "b") =>
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          docsRef.current[side === "a" ? "original" : "modified"] = update.state.doc;
+        }
+      });
+
+    viewRef.current.a.dispatch({
+      effects: StateEffect.appendConfig.of(recordChanges("a")),
+    });
+    viewRef.current.b.dispatch({
+      effects: StateEffect.appendConfig.of(recordChanges("b")),
+    });
   };
 
-  const createUnifiedView = (example: Example) => {
+  const createUnifiedView = () => {
     if (!containerRef.current) return;
 
     containerRef.current.innerHTML = "";
+    const { original, modified } = docsRef.current;
 
-    viewRef.current = new EditorView({
+    const editorView = new EditorView({
       parent: containerRef.current,
-      doc: example.modified,
+      doc: modified,
       extensions: [
         history(),
         keymap.of(historyKeymap),
         EditorView.lineWrapping,
         EditorView.theme({
           ".cm-changeGutter": {
-            width: "4px !important", // Slightly wider to accommodate rounded elements
+            width: "4px !important",
             backgroundColor: "transparent !important",
           },
         }),
         unifiedMergeView({
-          original: example.original,
+          original: original,
           mergeControls: true,
           highlightChanges: true,
+          allowInlineDiffs: true,
           gutter: true,
+        }),
+        // Listen to chunk events and update shared docs
+        EditorView.updateListener.of((update) => {
+          for (const tr of update.transactions) {
+            const evt = tr.annotation(Transaction.userEvent);
+            if (evt === "accept" || evt === "accept.all" || evt === "revert") {
+              // Update original doc when chunks are accepted/reverted
+              docsRef.current.original = getOriginalDoc(update.state);
+              console.log(
+                "chunks left:",
+                update.state.field(ChunkField, false)?.length ?? 0
+              );
+              break;
+            }
+          }
+          // Update modified doc when document changes
+          if (update.docChanged) {
+            docsRef.current.modified = update.state.doc;
+          }
         }),
       ],
     });
+
+    viewRef.current = editorView;
   };
 
   useEffect(() => {
-    const example = examples[selectedExample];
-
     if (viewRef.current) {
       viewRef.current.destroy();
     }
 
+    // Clear event log when switching examples or view types
+    setEventLog([]);
+
     if (viewType === "split") {
-      createSplitView(example);
+      createSplitView();
     } else {
-      createUnifiedView(example);
+      createUnifiedView();
     }
 
     return () => {
@@ -197,12 +246,14 @@ const MergeViewDemo: React.FC = () => {
     if (!viewRef.current) return;
 
     if (viewType === "unified") {
-      // For unified view, use the unified acceptAllChunks function
       acceptAllChunksUnifiedView(viewRef.current as EditorView);
     } else if (viewType === "split") {
-      // For split view, use the MergeView acceptAllChunks function
       acceptAllChunksMergeView(viewRef.current as MergeView, "a-to-b");
     }
+  };
+
+  const clearEventLog = () => {
+    setEventLog([]);
   };
 
   return (
@@ -225,7 +276,25 @@ const MergeViewDemo: React.FC = () => {
         >
           Accept All Chunks
         </button>
+        {viewType === "unified" && eventLog.length > 0 && (
+          <button className="button button-secondary" onClick={clearEventLog}>
+            Clear Event Log
+          </button>
+        )}
       </div>
+
+      {viewType === "unified" && eventLog.length > 0 && (
+        <div className="mb-4 p-3 bg-gray-100 rounded-md">
+          <h3 className="text-sm font-medium mb-2">Event Log:</h3>
+          <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
+            {eventLog.map((event, index) => (
+              <div key={index} className="text-gray-700">
+                {event}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <EditorContainer ref={containerRef} />
     </Container>
