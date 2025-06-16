@@ -1,6 +1,6 @@
 import { EditorView, DecorationSet } from '@codemirror/view';
 import * as _codemirror_state from '@codemirror/state';
-import { Text, ChangeDesc, EditorStateConfig, EditorState, StateField, ChangeSet, StateEffect, StateCommand } from '@codemirror/state';
+import { Text, ChangeDesc, EditorStateConfig, StateField, EditorState, ChangeSet, StateEffect, StateCommand } from '@codemirror/state';
 
 /**
 A changed range.
@@ -256,15 +256,11 @@ interface DirectMergeConfig extends MergeConfig {
     Configuration for the first editor (the left one in a
     left-to-right context).
     */
-    a: EditorStateConfig & {
-        state?: EditorState;
-    };
+    a: EditorStateConfig;
     /**
     Configuration for the second editor.
     */
-    b: EditorStateConfig & {
-        state?: EditorState;
-    };
+    b: EditorStateConfig;
     /**
     Parent element to append the view to.
     */

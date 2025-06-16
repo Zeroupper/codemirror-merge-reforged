@@ -1491,30 +1491,17 @@ class MergeView {
         ];
         if (config.gutter !== false)
             configA.push(changeGutter);
-        let stateA;
-        if ("state" in config.a && config.a.state) {
-            // Reuse existing state verbatim to preserve history
-            stateA = config.a.state.update({
-                effects: StateEffect.appendConfig.of([
-                    EditorView.editorAttributes.of({ class: "cm-merge-a" }),
-                    configCompartment.of(configA),
-                    sharedExtensions,
-                ]),
-            }).state;
-        }
-        else {
-            // Create new state as before
-            stateA = EditorState.create({
-                doc: config.a.doc,
-                selection: config.a.selection,
-                extensions: [
-                    config.a.extensions || [],
-                    EditorView.editorAttributes.of({ class: "cm-merge-a" }),
-                    configCompartment.of(configA),
-                    sharedExtensions,
-                ],
-            });
-        }
+        let stateA = EditorState.create({
+            doc: config.a.doc,
+            selection: config.a.selection,
+            extensions: [
+                config.a.extensions || [],
+                EditorView.editorAttributes.of({ class: "cm-merge-a" }),
+                configCompartment.of(configA),
+                // Remove individual history - we'll handle it ourselves
+                sharedExtensions,
+            ],
+        });
         let configB = [
             mergeConfig.of({
                 side: "b",
@@ -1525,30 +1512,17 @@ class MergeView {
         ];
         if (config.gutter !== false)
             configB.push(changeGutter);
-        let stateB;
-        if ("state" in config.b && config.b.state) {
-            // Reuse existing state verbatim to preserve history
-            stateB = config.b.state.update({
-                effects: StateEffect.appendConfig.of([
-                    EditorView.editorAttributes.of({ class: "cm-merge-b" }),
-                    configCompartment.of(configB),
-                    sharedExtensions,
-                ]),
-            }).state;
-        }
-        else {
-            // Create new state as before
-            stateB = EditorState.create({
-                doc: config.b.doc,
-                selection: config.b.selection,
-                extensions: [
-                    config.b.extensions || [],
-                    EditorView.editorAttributes.of({ class: "cm-merge-b" }),
-                    configCompartment.of(configB),
-                    sharedExtensions,
-                ],
-            });
-        }
+        let stateB = EditorState.create({
+            doc: config.b.doc,
+            selection: config.b.selection,
+            extensions: [
+                config.b.extensions || [],
+                EditorView.editorAttributes.of({ class: "cm-merge-b" }),
+                configCompartment.of(configB),
+                // Remove individual history - we'll handle it ourselves
+                sharedExtensions,
+            ],
+        });
         this.chunks = Chunk.build(stateA.doc, stateB.doc, this.diffConf);
         let add = [
             ChunkField.init(() => this.chunks),

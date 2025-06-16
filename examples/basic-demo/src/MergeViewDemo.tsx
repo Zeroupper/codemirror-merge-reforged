@@ -14,6 +14,8 @@ import {
   getOriginalDoc,
 } from "codemirror-merge-reforged";
 import { ChunkField } from "../../../src/merge";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { langs } from "@uiw/codemirror-extensions-langs";
 
 interface Example {
   name: string;
@@ -130,6 +132,8 @@ const MergeViewDemo: React.FC = () => {
       a: {
         doc: original,
         extensions: [
+          langs.javascript(),
+          oneDark,
           history(),
           keymap.of(historyKeymap),
           EditorView.lineWrapping,
@@ -138,6 +142,8 @@ const MergeViewDemo: React.FC = () => {
       b: {
         doc: modified,
         extensions: [
+          langs.javascript(),
+          oneDark,
           history(),
           keymap.of(historyKeymap),
           EditorView.lineWrapping,
@@ -153,7 +159,8 @@ const MergeViewDemo: React.FC = () => {
     const recordChanges = (side: "a" | "b") =>
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
-          docsRef.current[side === "a" ? "original" : "modified"] = update.state.doc;
+          docsRef.current[side === "a" ? "original" : "modified"] =
+            update.state.doc;
         }
       });
 
@@ -175,6 +182,8 @@ const MergeViewDemo: React.FC = () => {
       parent: containerRef.current,
       doc: modified,
       extensions: [
+        langs.javascript(),
+        oneDark,
         history(),
         keymap.of(historyKeymap),
         EditorView.lineWrapping,
