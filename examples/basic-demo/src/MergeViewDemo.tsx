@@ -150,7 +150,7 @@ const MergeViewDemo: React.FC = () => {
         ],
       },
       parent: containerRef.current,
-      revertControls: "a-to-b",
+      revertControls: "b-to-a",
       highlightChanges: true,
       gutter: true,
     });
@@ -199,6 +199,7 @@ const MergeViewDemo: React.FC = () => {
           highlightChanges: true,
           allowInlineDiffs: true,
           gutter: true,
+          changeReversed: true,
         }),
         // Listen to chunk events and update shared docs
         EditorView.updateListener.of((update) => {
@@ -207,10 +208,7 @@ const MergeViewDemo: React.FC = () => {
             if (evt === "accept" || evt === "accept.all" || evt === "revert") {
               // Update original doc when chunks are accepted/reverted
               docsRef.current.original = getOriginalDoc(update.state);
-              console.log(
-                "chunks left:",
-                update.state.field(ChunkField, false)?.length ?? 0
-              );
+              console.log(docsRef.current.original.toString());
               break;
             }
           }

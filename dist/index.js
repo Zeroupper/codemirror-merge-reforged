@@ -1878,6 +1878,7 @@ original text displayed above the new text.
 function unifiedMergeView(config) {
     let orig = typeof config.original == "string" ? Text.of(config.original.split(/\r?\n/)) : config.original;
     let diffConf = config.diffConfig || defaultDiffConfig;
+    let reversed = config.changeReversed === true;
     return [
         Prec.low(decorateChunks),
         deletedChunks,
@@ -1888,8 +1889,11 @@ function unifiedMergeView(config) {
             if (!tr.docChanged && !updateDoc)
                 return null;
             let prev = tr.startState.field(ChunkField);
-            let chunks = updateDoc ? Chunk.updateA(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf)
-                : Chunk.updateB(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf);
+            let chunks = updateDoc ?
+                (reversed ? Chunk.updateB(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf)
+                    : Chunk.updateA(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf))
+                : (reversed ? Chunk.updateA(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf)
+                    : Chunk.updateB(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf));
             return { effects: setChunks.of(chunks) };
         }),
         invertedEffects.of(tr => {
@@ -1913,12 +1917,26 @@ function unifiedMergeView(config) {
             overrideChunk: config.allowInlineDiffs ? overrideChunkInline : undefined,
             side: "b"
         }),
-        originalDoc.init(() => orig),
+        originalDoc.init(() => reversed ? Text.empty : orig),
+        modifiedDoc.init(() => reversed ? orig : Text.empty),
         config.gutter !== false ? unifiedChangeGutter : [],
         config.collapseUnchanged ? collapseUnchanged(config.collapseUnchanged) : [],
-        ChunkField.init(state => Chunk.build(orig, state.doc, diffConf))
+        ChunkField.init(state => reversed ? Chunk.build(state.doc, orig, diffConf) : Chunk.build(orig, state.doc, diffConf))
     ];
 }
+const modifiedDoc = /*@__PURE__*/StateField.define({
+    create: () => Text.empty,
+    update(doc, tr) {
+        for (let e of tr.effects)
+            if (e.is(updateOriginalDoc)) {
+                // In reversed mode, we need to track the modified doc separately
+                let reversed = tr.state.facet(mergeConfig).side === "b"; // This is a simplified check
+                if (reversed)
+                    doc = e.value.doc;
+            }
+        return doc;
+    }
+});
 /**
 The state effect used to signal changes in the original doc in a
 unified merge view.
