@@ -1848,7 +1848,7 @@ function acceptAllChunksMergeView(mergeView, direction = "a-to-b") {
     // Apply all changes in a single transaction
     dest.dispatch({
         changes,
-        userEvent: "revert.all",
+        userEvent: "accept.all",
     });
     return true;
 }
