@@ -1878,7 +1878,6 @@ original text displayed above the new text.
 function unifiedMergeView(config) {
     let orig = typeof config.original == "string" ? Text.of(config.original.split(/\r?\n/)) : config.original;
     let diffConf = config.diffConfig || defaultDiffConfig;
-    let reversed = config.changeReversed === true;
     return [
         Prec.low(decorateChunks),
         deletedChunks,
@@ -1889,11 +1888,8 @@ function unifiedMergeView(config) {
             if (!tr.docChanged && !updateDoc)
                 return null;
             let prev = tr.startState.field(ChunkField);
-            let chunks = updateDoc ?
-                (reversed ? Chunk.updateB(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf)
-                    : Chunk.updateA(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf))
-                : (reversed ? Chunk.updateA(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf)
-                    : Chunk.updateB(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf));
+            let chunks = updateDoc ? Chunk.updateA(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf)
+                : Chunk.updateB(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf);
             return { effects: setChunks.of(chunks) };
         }),
         invertedEffects.of(tr => {
@@ -1915,28 +1911,15 @@ function unifiedMergeView(config) {
             syntaxHighlightDeletionsMaxLength: 3000,
             mergeControls: config.mergeControls !== false,
             overrideChunk: config.allowInlineDiffs ? overrideChunkInline : undefined,
-            side: "b"
+            changeReversed: config.changeReversed,
+            side: "b",
         }),
-        originalDoc.init(() => reversed ? Text.empty : orig),
-        modifiedDoc.init(() => reversed ? orig : Text.empty),
+        originalDoc.init(() => orig),
         config.gutter !== false ? unifiedChangeGutter : [],
         config.collapseUnchanged ? collapseUnchanged(config.collapseUnchanged) : [],
-        ChunkField.init(state => reversed ? Chunk.build(state.doc, orig, diffConf) : Chunk.build(orig, state.doc, diffConf))
+        ChunkField.init(state => Chunk.build(orig, state.doc, diffConf))
     ];
 }
-const modifiedDoc = /*@__PURE__*/StateField.define({
-    create: () => Text.empty,
-    update(doc, tr) {
-        for (let e of tr.effects)
-            if (e.is(updateOriginalDoc)) {
-                // In reversed mode, we need to track the modified doc separately
-                let reversed = tr.state.facet(mergeConfig).side === "b"; // This is a simplified check
-                if (reversed)
-                    doc = e.value.doc;
-            }
-        return doc;
-    }
-});
 /**
 The state effect used to signal changes in the original doc in a
 unified merge view.
@@ -1979,7 +1962,7 @@ function deletionWidget(state, chunk, hideContent) {
     if (known)
         return known;
     let buildDOM = (view) => {
-        let { highlightChanges, syntaxHighlightDeletions, syntaxHighlightDeletionsMaxLength, mergeControls } = state.facet(mergeConfig);
+        let { highlightChanges, syntaxHighlightDeletions, syntaxHighlightDeletionsMaxLength, mergeControls, changeReversed } = state.facet(mergeConfig);
         let dom = document.createElement("div");
         dom.className = "cm-deletedChunk";
         if (mergeControls) {
@@ -1988,11 +1971,11 @@ function deletionWidget(state, chunk, hideContent) {
             let accept = buttons.appendChild(document.createElement("button"));
             accept.name = "accept";
             accept.textContent = state.phrase("Accept");
-            accept.onmousedown = e => { e.preventDefault(); acceptChunk(view, view.posAtDOM(dom)); };
+            accept.onmousedown = e => { e.preventDefault(); changeReversed ? rejectChunk(view, view.posAtDOM(dom)) : acceptChunk(view, view.posAtDOM(dom)); };
             let reject = buttons.appendChild(document.createElement("button"));
             reject.name = "reject";
             reject.textContent = state.phrase("Reject");
-            reject.onmousedown = e => { e.preventDefault(); rejectChunk(view, view.posAtDOM(dom)); };
+            reject.onmousedown = e => { e.preventDefault(); changeReversed ? acceptChunk(view, view.posAtDOM(dom)) : rejectChunk(view, view.posAtDOM(dom)); };
         }
         if (hideContent || chunk.fromA >= chunk.toA)
             return dom;
