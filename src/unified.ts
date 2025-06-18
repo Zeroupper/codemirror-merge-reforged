@@ -41,9 +41,9 @@ interface UnifiedMergeConfig {
   /// a change (default is 3), and `minSize` gives the minimum amount
   /// of collapsible lines that need to be present (defaults to 4).
   collapseUnchanged?: {margin?: number, minSize?: number},
-    /// When true, the editor content is treated as the original document
-  /// and `config.original` as the modified document. This reverses
-  /// the meaning of "inserted" and "deleted" lines. Defaults to false.
+  /// When true, the editor accept and reject buttons are reversed.
+  /// This is useful when the editor content is the original document
+  /// and `config.original` as the modified document. Defaults to false.
   changeReversed?: boolean
 }
 
