@@ -386,9 +386,9 @@ interface UnifiedMergeConfig {
         minSize?: number;
     };
     /**
-      When true, the editor content is treated as the original document
-    and `config.original` as the modified document. This reverses
-    the meaning of "inserted" and "deleted" lines. Defaults to false.
+    When true, the editor accept and reject buttons are reversed.
+    This is useful when the editor content is the original document
+    and `config.original` as the modified document. Defaults to false.
     */
     changeReversed?: boolean;
 }

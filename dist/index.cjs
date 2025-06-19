@@ -2104,26 +2104,49 @@ function acceptAllChunksUnifiedView(view) {
     let chunks = state$1.field(ChunkField);
     if (!chunks || chunks.length === 0)
         return false;
+    let { changeReversed } = state$1.facet(mergeConfig);
     let orig = state$1.field(originalDoc);
     let changes = [];
-    // Process chunks in reverse order to maintain correct positions
-    for (let i = chunks.length - 1; i >= 0; i--) {
-        let chunk = chunks[i];
-        let insert = state$1.sliceDoc(chunk.fromB, Math.max(chunk.fromB, chunk.toB - 1));
-        if (chunk.fromB != chunk.toB && chunk.toA <= orig.length)
-            insert += state$1.lineBreak;
-        changes.push({
-            from: chunk.fromA,
-            to: Math.min(orig.length, chunk.toA),
-            insert
+    if (changeReversed) {
+        // When changeReversed is true, "accept all" means reject all chunks
+        // (revert editor content to match original document)
+        for (let i = chunks.length - 1; i >= 0; i--) {
+            let chunk = chunks[i];
+            let insert = orig.sliceString(chunk.fromA, Math.max(chunk.fromA, chunk.toA - 1));
+            if (chunk.fromA != chunk.toA && chunk.toB <= state$1.doc.length)
+                insert += state$1.lineBreak;
+            changes.push({
+                from: chunk.fromB,
+                to: Math.min(state$1.doc.length, chunk.toB),
+                insert
+            });
+        }
+        // Apply all changes to the editor document
+        view.dispatch({
+            changes,
+            userEvent: "accept.all"
         });
     }
-    // Combine all changes into a single ChangeSet
-    let combinedChanges = state.ChangeSet.of(changes, orig.length);
-    view.dispatch({
-        effects: updateOriginalDoc.of({ doc: combinedChanges.apply(orig), changes: combinedChanges }),
-        userEvent: "accept.all"
-    });
+    else {
+        // Normal behavior: accept all chunks (update original to match editor)
+        for (let i = chunks.length - 1; i >= 0; i--) {
+            let chunk = chunks[i];
+            let insert = state$1.sliceDoc(chunk.fromB, Math.max(chunk.fromB, chunk.toB - 1));
+            if (chunk.fromB != chunk.toB && chunk.toA <= orig.length)
+                insert += state$1.lineBreak;
+            changes.push({
+                from: chunk.fromA,
+                to: Math.min(orig.length, chunk.toA),
+                insert
+            });
+        }
+        // Combine all changes into a single ChangeSet and update original doc
+        let combinedChanges = state.ChangeSet.of(changes, orig.length);
+        view.dispatch({
+            effects: updateOriginalDoc.of({ doc: combinedChanges.apply(orig), changes: combinedChanges }),
+            userEvent: "accept.all"
+        });
+    }
     return true;
 }
 function buildDeletedChunks(state$1) {
