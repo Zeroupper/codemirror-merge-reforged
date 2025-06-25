@@ -1114,6 +1114,11 @@ const baseTheme = view.EditorView.baseTheme({
     },
     ".cm-deletedChunk": {
         paddingLeft: "6px",
+        cursor: "pointer",
+        transition: "background-color 0.2s ease",
+        "&:hover": {
+            backgroundColor: "rgba(160, 128, 100, .15)"
+        },
         "& .cm-chunkButtons": {
             position: "absolute",
             insetInlineEnd: "5px"
@@ -1880,24 +1885,37 @@ original text displayed above the new text.
 function unifiedMergeView(config) {
     let orig = typeof config.original == "string" ? state.Text.of(config.original.split(/\r?\n/)) : config.original;
     let diffConf = config.diffConfig || defaultDiffConfig;
+    console.log("🔧 UNIFIED MERGE VIEW INIT");
+    console.log("  Original doc length:", orig.length);
+    console.log("  Original doc content:", orig.toString().substring(0, 100) + "...");
     return [
         state.Prec.low(decorateChunks),
         deletedChunks,
         baseTheme,
+        // Add basic editing support
         view.EditorView.editorAttributes.of({ class: "cm-merge-b" }),
         state.EditorState.transactionExtender.of(tr => {
             let updateDoc = tr.effects.find(e => e.is(updateOriginalDoc));
             if (!tr.docChanged && !updateDoc)
                 return null;
+            console.log("🔄 TRANSACTION EXTENDER");
+            console.log("  Doc changed:", tr.docChanged);
+            console.log("  Update doc effect:", !!updateDoc);
             let prev = tr.startState.field(ChunkField);
+            console.log("  Previous chunks count:", prev.length);
             let chunks = updateDoc ? Chunk.updateA(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf)
                 : Chunk.updateB(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf);
+            console.log("  New chunks count:", chunks.length);
+            chunks.forEach((chunk, i) => {
+                console.log(`    Chunk ${i}: A[${chunk.fromA}-${chunk.toA}] B[${chunk.fromB}-${chunk.toB}] precise:${chunk.precise}`);
+            });
             return { effects: setChunks.of(chunks) };
         }),
         commands.invertedEffects.of(tr => {
             let effects = [];
             for (let effect of tr.effects) {
                 if (effect.is(updateOriginalDoc)) {
+                    console.log("🔄 INVERTED EFFECTS - updateOriginalDoc");
                     // Create the inverse effect that restores the previous original doc
                     let prevDoc = getOriginalDoc(tr.startState);
                     let inverseChanges = effect.value.changes.invert(effect.value.doc);
@@ -1916,10 +1934,29 @@ function unifiedMergeView(config) {
             changeReversed: config.changeReversed,
             side: "b",
         }),
-        originalDoc.init(() => orig),
+        originalDoc.init(() => {
+            console.log("📄 ORIGINAL DOC INIT");
+            console.log("  Content:", orig.toString().substring(0, 100) + "...");
+            return orig;
+        }),
         config.gutter !== false ? unifiedChangeGutter : [],
         config.collapseUnchanged ? collapseUnchanged(config.collapseUnchanged) : [],
-        ChunkField.init(state => Chunk.build(orig, state.doc, diffConf))
+        ChunkField.init(state => {
+            console.log("🧩 CHUNK FIELD INIT");
+            console.log("  Original doc length:", orig.length);
+            console.log("  Editor doc length:", state.doc.length);
+            console.log("  Editor doc content:", state.doc.toString().substring(0, 100) + "...");
+            let chunks = Chunk.build(orig, state.doc, diffConf);
+            console.log("  Built chunks count:", chunks.length);
+            chunks.forEach((chunk, i) => {
+                console.log(`    Chunk ${i}: A[${chunk.fromA}-${chunk.toA}] B[${chunk.fromB}-${chunk.toB}] precise:${chunk.precise}`);
+                console.log(`      Changes in chunk:`, chunk.changes.length);
+                chunk.changes.forEach((change, j) => {
+                    console.log(`        Change ${j}: A[${change.fromA}-${change.toA}] B[${change.fromB}-${change.toB}]`);
+                });
+            });
+            return chunks;
+        })
     ];
 }
 /**
@@ -1937,9 +1974,15 @@ function originalDocChangeEffect(state, changes) {
 const originalDoc = state.StateField.define({
     create: () => state.Text.empty,
     update(doc, tr) {
-        for (let e of tr.effects)
-            if (e.is(updateOriginalDoc))
+        for (let e of tr.effects) {
+            if (e.is(updateOriginalDoc)) {
+                console.log("📄 ORIGINAL DOC UPDATE");
+                console.log("  Old doc length:", doc.length);
+                console.log("  New doc length:", e.value.doc.length);
+                console.log("  Changes:", e.value.changes.toString());
                 doc = e.value.doc;
+            }
+        }
         return doc;
     }
 });
@@ -1963,25 +2006,48 @@ function deletionWidget(state, chunk, hideContent) {
     let known = DeletionWidgets.get(chunk.changes);
     if (known)
         return known;
+    console.log("🎨 DELETION WIDGET CREATE");
+    console.log("  Chunk: A[" + chunk.fromA + "-" + chunk.toA + "] B[" + chunk.fromB + "-" + chunk.toB + "]");
+    console.log("  Hide content:", hideContent);
     let buildDOM = (view) => {
+        console.log("🏗️ DELETION WIDGET BUILD DOM");
+        console.log("  Position in editor:", chunk.fromB);
         let { highlightChanges, syntaxHighlightDeletions, syntaxHighlightDeletionsMaxLength, mergeControls, changeReversed } = state.facet(mergeConfig);
         let dom = document.createElement("div");
         dom.className = "cm-deletedChunk";
+        // Add hover event listeners
+        dom.addEventListener("mouseenter", () => {
+            console.log("🖱️ deletedchunk is hovered");
+            console.log("  Chunk: A[" + chunk.fromA + "-" + chunk.toA + "] B[" + chunk.fromB + "-" + chunk.toB + "]");
+        });
+        dom.addEventListener("mouseleave", () => {
+            console.log("🖱️ deletedchunk hover ended");
+        });
+        console.log("  Merge controls:", mergeControls);
         if (mergeControls) {
             let buttons = dom.appendChild(document.createElement("div"));
             buttons.className = "cm-chunkButtons";
             let accept = buttons.appendChild(document.createElement("button"));
             accept.name = "accept";
             accept.textContent = state.phrase("Accept");
-            accept.onmousedown = e => { e.preventDefault(); changeReversed ? rejectChunk(view, view.posAtDOM(dom)) : acceptChunk(view, view.posAtDOM(dom)); };
+            accept.onmousedown = e => {
+                e.preventDefault();
+                console.log("🔘 ACCEPT BUTTON CLICKED");
+                changeReversed ? rejectChunk(view, view.posAtDOM(dom)) : acceptChunk(view, view.posAtDOM(dom));
+            };
             let reject = buttons.appendChild(document.createElement("button"));
             reject.name = "reject";
             reject.textContent = state.phrase("Reject");
-            reject.onmousedown = e => { e.preventDefault(); changeReversed ? acceptChunk(view, view.posAtDOM(dom)) : rejectChunk(view, view.posAtDOM(dom)); };
+            reject.onmousedown = e => {
+                e.preventDefault();
+                console.log("🔘 REJECT BUTTON CLICKED");
+                changeReversed ? acceptChunk(view, view.posAtDOM(dom)) : rejectChunk(view, view.posAtDOM(dom));
+            };
         }
         if (hideContent || chunk.fromA >= chunk.toA)
             return dom;
         let text = view.state.field(originalDoc).sliceString(chunk.fromA, chunk.endA);
+        console.log("  Deleted text:", text.substring(0, 50) + "...");
         let lang = syntaxHighlightDeletions && state.facet(language.language);
         let line = makeLine();
         let changes = chunk.changes, changeI = 0, inside = false;
@@ -2050,6 +2116,7 @@ function deletionWidget(state, chunk, hideContent) {
         side: -1,
         widget: new DeletionWidget(buildDOM)
     });
+    console.log("  Created decoration widget at position:", chunk.fromB);
     DeletionWidgets.set(chunk.changes, deco);
     return deco;
 }
@@ -2060,13 +2127,20 @@ longer be highlighted unless it is edited again.
 */
 function acceptChunk(view, pos) {
     let { state: state$1 } = view, at = pos !== null && pos !== void 0 ? pos : state$1.selection.main.head;
+    console.log("✅ ACCEPT CHUNK");
+    console.log("  Position:", at);
     let chunk = view.state.field(ChunkField).find(ch => ch.fromB <= at && ch.endB >= at);
-    if (!chunk)
+    if (!chunk) {
+        console.log("  No chunk found at position");
         return false;
+    }
+    console.log("  Found chunk: A[" + chunk.fromA + "-" + chunk.toA + "] B[" + chunk.fromB + "-" + chunk.toB + "]");
     let insert = view.state.sliceDoc(chunk.fromB, Math.max(chunk.fromB, chunk.toB - 1));
     let orig = view.state.field(originalDoc);
     if (chunk.fromB != chunk.toB && chunk.toA <= orig.length)
         insert += view.state.lineBreak;
+    console.log("  Insert text:", insert.substring(0, 50) + "...");
+    console.log("  Original doc before:", orig.sliceString(chunk.fromA, chunk.toA));
     let changes = state.ChangeSet.of({ from: chunk.fromA, to: Math.min(orig.length, chunk.toA), insert }, orig.length);
     view.dispatch({
         effects: updateOriginalDoc.of({ doc: changes.apply(orig), changes }),
@@ -2081,13 +2155,20 @@ to the content it has in the original document.
 */
 function rejectChunk(view, pos) {
     let { state } = view, at = pos !== null && pos !== void 0 ? pos : state.selection.main.head;
+    console.log("❌ REJECT CHUNK");
+    console.log("  Position:", at);
     let chunk = state.field(ChunkField).find(ch => ch.fromB <= at && ch.endB >= at);
-    if (!chunk)
+    if (!chunk) {
+        console.log("  No chunk found at position");
         return false;
+    }
+    console.log("  Found chunk: A[" + chunk.fromA + "-" + chunk.toA + "] B[" + chunk.fromB + "-" + chunk.toB + "]");
     let orig = state.field(originalDoc);
     let insert = orig.sliceString(chunk.fromA, Math.max(chunk.fromA, chunk.toA - 1));
     if (chunk.fromA != chunk.toA && chunk.toB <= state.doc.length)
         insert += state.lineBreak;
+    console.log("  Insert text:", insert.substring(0, 50) + "...");
+    console.log("  Editor content before:", state.sliceDoc(chunk.fromB, chunk.toB));
     view.dispatch({
         changes: { from: chunk.fromB, to: Math.min(state.doc.length, chunk.toB), insert },
         userEvent: "revert"
@@ -2104,10 +2185,13 @@ function acceptAllChunksUnifiedView(view) {
     let chunks = state$1.field(ChunkField);
     if (!chunks || chunks.length === 0)
         return false;
+    console.log("✅ ACCEPT ALL CHUNKS");
+    console.log("  Total chunks:", chunks.length);
     let { changeReversed } = state$1.facet(mergeConfig);
     let orig = state$1.field(originalDoc);
     let changes = [];
     if (changeReversed) {
+        console.log("  Change reversed mode - rejecting all chunks");
         // When changeReversed is true, "accept all" means reject all chunks
         // (revert editor content to match original document)
         for (let i = chunks.length - 1; i >= 0; i--) {
@@ -2115,6 +2199,7 @@ function acceptAllChunksUnifiedView(view) {
             let insert = orig.sliceString(chunk.fromA, Math.max(chunk.fromA, chunk.toA - 1));
             if (chunk.fromA != chunk.toA && chunk.toB <= state$1.doc.length)
                 insert += state$1.lineBreak;
+            console.log(`    Chunk ${i}: reverting B[${chunk.fromB}-${chunk.toB}] to A content`);
             changes.push({
                 from: chunk.fromB,
                 to: Math.min(state$1.doc.length, chunk.toB),
@@ -2128,12 +2213,14 @@ function acceptAllChunksUnifiedView(view) {
         });
     }
     else {
+        console.log("  Normal mode - accepting all chunks");
         // Normal behavior: accept all chunks (update original to match editor)
         for (let i = chunks.length - 1; i >= 0; i--) {
             let chunk = chunks[i];
             let insert = state$1.sliceDoc(chunk.fromB, Math.max(chunk.fromB, chunk.toB - 1));
             if (chunk.fromB != chunk.toB && chunk.toA <= orig.length)
                 insert += state$1.lineBreak;
+            console.log(`    Chunk ${i}: updating A[${chunk.fromA}-${chunk.toA}] with B content`);
             changes.push({
                 from: chunk.fromA,
                 to: Math.min(orig.length, chunk.toA),
@@ -2150,17 +2237,34 @@ function acceptAllChunksUnifiedView(view) {
     return true;
 }
 function buildDeletedChunks(state$1) {
+    console.log("🏗️ BUILD DELETED CHUNKS");
     let builder = new state.RangeSetBuilder();
-    for (let ch of state$1.field(ChunkField)) {
+    let chunks = state$1.field(ChunkField);
+    console.log("  Processing", chunks.length, "chunks");
+    for (let ch of chunks) {
         let hide = state$1.facet(mergeConfig).overrideChunk && chunkCanDisplayInline(state$1, ch);
-        builder.add(ch.fromB, ch.fromB, deletionWidget(state$1, ch, !!hide));
+        console.log(`    Chunk A[${ch.fromA}-${ch.toA}] B[${ch.fromB}-${ch.toB}] hide:${!!hide}`);
+        let widget = deletionWidget(state$1, ch, !!hide);
+        builder.add(ch.fromB, ch.fromB, widget);
+        console.log(`      Added widget at position ${ch.fromB}`);
     }
-    return builder.finish();
+    let result = builder.finish();
+    console.log("  Built decoration set with", result.size, "decorations");
+    return result;
 }
 const deletedChunks = state.StateField.define({
-    create: state => buildDeletedChunks(state),
+    create: state => {
+        console.log("🎨 DELETED CHUNKS FIELD CREATE");
+        return buildDeletedChunks(state);
+    },
     update(deco, tr) {
-        return tr.state.field(ChunkField, false) != tr.startState.field(ChunkField, false) ? buildDeletedChunks(tr.state) : deco;
+        let newChunks = tr.state.field(ChunkField, false);
+        let oldChunks = tr.startState.field(ChunkField, false);
+        if (newChunks != oldChunks) {
+            console.log("🎨 DELETED CHUNKS FIELD UPDATE - chunks changed");
+            return buildDeletedChunks(tr.state);
+        }
+        return deco;
     },
     provide: f => view.EditorView.decorations.from(f)
 });

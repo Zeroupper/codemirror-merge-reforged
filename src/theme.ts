@@ -72,6 +72,11 @@ export const baseTheme = EditorView.baseTheme({
 
   ".cm-deletedChunk": {
     paddingLeft: "6px",
+    cursor: "pointer",
+    transition: "background-color 0.2s ease",
+    "&:hover": {
+      backgroundColor: "rgba(160, 128, 100, .15)"
+    },
     "& .cm-chunkButtons": {
       position: "absolute",
       insetInlineEnd: "5px"

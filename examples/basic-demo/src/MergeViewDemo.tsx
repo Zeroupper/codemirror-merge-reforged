@@ -5,7 +5,7 @@ import EditorContainer from "./components/EditorContainer";
 import Container from "./components/Container";
 import ViewTypeToggle from "./components/ViewTypeToggle";
 import Select from "./components/Select";
-import { history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
   acceptAllChunksMergeView,
   acceptAllChunksUnifiedView,
@@ -32,7 +32,12 @@ const examples: Record<string, Example> = {
 }
 
 const name = "Alice";
-console.log("Welcome " + name);`,
+console.log("Welcome " + name);
+
+function helloWorld() {
+    console.log("Hello World!");
+    return true;
+}`,
     modified: `function helloNew() {
     console.log("Hello!");
     return false;
@@ -135,6 +140,7 @@ const MergeViewDemo: React.FC = () => {
           langs.javascript(),
           oneDark,
           history(),
+          keymap.of(defaultKeymap),
           keymap.of(historyKeymap),
           EditorView.lineWrapping,
         ],
@@ -146,6 +152,8 @@ const MergeViewDemo: React.FC = () => {
           oneDark,
           history(),
           keymap.of(historyKeymap),
+          keymap.of(defaultKeymap),
+
           EditorView.lineWrapping,
         ],
       },
@@ -185,6 +193,7 @@ const MergeViewDemo: React.FC = () => {
         langs.javascript(),
         oneDark,
         history(),
+        keymap.of(defaultKeymap),
         keymap.of(historyKeymap),
         EditorView.lineWrapping,
         EditorView.theme({
@@ -199,7 +208,7 @@ const MergeViewDemo: React.FC = () => {
           highlightChanges: true,
           allowInlineDiffs: true,
           gutter: true,
-          changeReversed: true,
+          changeReversed: false,
         }),
         // Listen to chunk events and update shared docs
         EditorView.updateListener.of((update) => {
