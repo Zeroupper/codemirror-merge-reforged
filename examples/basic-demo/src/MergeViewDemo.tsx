@@ -101,6 +101,7 @@ const MergeViewDemo: React.FC = () => {
   const [viewType, setViewType] = useState<ViewType>("split");
   const [selectedExample, setSelectedExample] = useState<string>("javascript");
   const [eventLog, setEventLog] = useState<string[]>([]);
+  const [savedContent, setSavedContent] = useState<string>("");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<MergeView | EditorView | null>(null);
 
@@ -259,6 +260,20 @@ const MergeViewDemo: React.FC = () => {
     }
   };
 
+  const handleSave = () => {
+    if (!viewRef.current) return;
+
+    let contentToSave = "";
+    if (viewType === "unified") {
+      const originalDoc = getOriginalDoc((viewRef.current as EditorView).state);
+      contentToSave = originalDoc.toString();
+    } else if (viewType === "split") {
+      contentToSave = (viewRef.current as MergeView).a.state.doc.toString();
+    }
+    
+    setSavedContent(contentToSave);
+  };
+
   const clearEventLog = () => {
     setEventLog([]);
   };
@@ -283,6 +298,12 @@ const MergeViewDemo: React.FC = () => {
         >
           Accept All Chunks
         </button>
+        <button
+          className="button button-success"
+          onClick={handleSave}
+        >
+          Save
+        </button>
         {viewType === "unified" && eventLog.length > 0 && (
           <button className="button button-secondary" onClick={clearEventLog}>
             Clear Event Log
@@ -304,6 +325,15 @@ const MergeViewDemo: React.FC = () => {
       )}
 
       <EditorContainer ref={containerRef} />
+
+      {savedContent && (
+        <div className="mt-6 p-4 bg-gray-50 rounded-md border">
+          <h3 className="text-sm font-medium mb-3 text-gray-700">Saved Content:</h3>
+          <pre className="text-xs bg-white p-3 rounded border overflow-x-auto whitespace-pre-wrap">
+            <code>{savedContent}</code>
+          </pre>
+        </div>
+      )}
     </Container>
   );
 };

@@ -44,7 +44,7 @@ interface UnifiedMergeConfig {
   /// When true, the editor accept and reject buttons are reversed.
   /// This is useful when the editor content is the original document
   /// and `config.original` as the modified document. Defaults to false.
-  changeReversed?: boolean
+  // changeReversed?: boolean
 }
 
 const deletedChunkGutterMarker = new class extends GutterMarker {
@@ -97,7 +97,7 @@ export function unifiedMergeView(config: UnifiedMergeConfig) {
       syntaxHighlightDeletionsMaxLength: 3000,
       mergeControls: config.mergeControls !== false,
       overrideChunk: config.allowInlineDiffs ? overrideChunkInline : undefined,
-      changeReversed: config.changeReversed,
+      // changeReversed: config.changeReversed,
       side: "b",
     }),
     originalDoc.init(() => orig),
@@ -144,7 +144,7 @@ function deletionWidget(state: EditorState, chunk: Chunk, hideContent: boolean) 
   if (known) return known
 
   let buildDOM = (view: EditorView) => {
-    let {highlightChanges, syntaxHighlightDeletions, syntaxHighlightDeletionsMaxLength, mergeControls, changeReversed} =
+    let {highlightChanges, syntaxHighlightDeletions, syntaxHighlightDeletionsMaxLength, mergeControls} =
       state.facet(mergeConfig)
     let dom = document.createElement("div")
     dom.className = "cm-deletedChunk"
@@ -154,11 +154,11 @@ function deletionWidget(state: EditorState, chunk: Chunk, hideContent: boolean) 
       let accept = buttons.appendChild(document.createElement("button"))
       accept.name = "accept"
       accept.textContent = state.phrase("Accept")
-      accept.onmousedown = e => { e.preventDefault(); changeReversed ? rejectChunk(view, view.posAtDOM(dom)) : acceptChunk(view, view.posAtDOM(dom)) }
+      accept.onmousedown = e => { e.preventDefault(); acceptChunk(view, view.posAtDOM(dom)) }
       let reject = buttons.appendChild(document.createElement("button"))
       reject.name = "reject"
       reject.textContent = state.phrase("Reject")
-      reject.onmousedown = e => { e.preventDefault(); changeReversed ? acceptChunk(view, view.posAtDOM(dom)) : rejectChunk(view, view.posAtDOM(dom)) }
+        reject.onmousedown = e => { e.preventDefault(); rejectChunk(view, view.posAtDOM(dom)) }
     }
     if (hideContent || chunk.fromA >= chunk.toA) return dom
 
@@ -271,31 +271,31 @@ export function acceptAllChunksUnifiedView(view: EditorView) {
   let chunks = state.field(ChunkField)
   if (!chunks || chunks.length === 0) return false
   
-  let {changeReversed} = state.facet(mergeConfig)
+  // let {changeReversed} = state.facet(mergeConfig)
   let orig = state.field(originalDoc)
   let changes: {from: number, to: number, insert: string}[] = []
   
-  if (changeReversed) {
-    // When changeReversed is true, "accept all" means reject all chunks
-    // (revert editor content to match original document)
-    for (let i = chunks.length - 1; i >= 0; i--) {
-      let chunk = chunks[i]
-      let insert = orig.sliceString(chunk.fromA, Math.max(chunk.fromA, chunk.toA - 1))
-      if (chunk.fromA != chunk.toA && chunk.toB <= state.doc.length) insert += state.lineBreak
+  // if (changeReversed) {
+  //   // When changeReversed is true, "accept all" means reject all chunks
+  //   // (revert editor content to match original document)
+  //   for (let i = chunks.length - 1; i >= 0; i--) {
+  //     let chunk = chunks[i]
+  //     let insert = orig.sliceString(chunk.fromA, Math.max(chunk.fromA, chunk.toA - 1))
+  //     if (chunk.fromA != chunk.toA && chunk.toB <= state.doc.length) insert += state.lineBreak
       
-      changes.push({
-        from: chunk.fromB, 
-        to: Math.min(state.doc.length, chunk.toB), 
-        insert
-      })
-    }
+  //     changes.push({
+  //       from: chunk.fromB, 
+  //       to: Math.min(state.doc.length, chunk.toB), 
+  //       insert
+  //     })
+  //   }
     
-    // Apply all changes to the editor document
-    view.dispatch({
-      changes,
-      userEvent: "accept.all"
-    })
-  } else {
+  //   // Apply all changes to the editor document
+  //   view.dispatch({
+  //     changes,
+  //     userEvent: "accept.all"
+  //   })
+  // } else {
     // Normal behavior: accept all chunks (update original to match editor)
     for (let i = chunks.length - 1; i >= 0; i--) {
       let chunk = chunks[i]
@@ -316,7 +316,7 @@ export function acceptAllChunksUnifiedView(view: EditorView) {
       effects: updateOriginalDoc.of({doc: combinedChanges.apply(orig), changes: combinedChanges}),
       userEvent: "accept.all"
     })
-  }
+  // }
   
   return true
 }

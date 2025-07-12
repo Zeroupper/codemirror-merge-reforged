@@ -385,12 +385,6 @@ interface UnifiedMergeConfig {
         margin?: number;
         minSize?: number;
     };
-    /**
-    When true, the editor accept and reject buttons are reversed.
-    This is useful when the editor content is the original document
-    and `config.original` as the modified document. Defaults to false.
-    */
-    changeReversed?: boolean;
 }
 /**
 Create an extension that causes the editor to display changes
