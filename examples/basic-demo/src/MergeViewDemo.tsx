@@ -5,7 +5,7 @@ import EditorContainer from "./components/EditorContainer";
 import Container from "./components/Container";
 import ViewTypeToggle from "./components/ViewTypeToggle";
 import Select from "./components/Select";
-import { history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
   acceptAllChunksMergeView,
   acceptAllChunksUnifiedView,
@@ -137,6 +137,7 @@ const MergeViewDemo: React.FC = () => {
           oneDark,
           history(),
           keymap.of(historyKeymap),
+          keymap.of(defaultKeymap),
           EditorView.lineWrapping,
         ],
       },
@@ -147,6 +148,7 @@ const MergeViewDemo: React.FC = () => {
           oneDark,
           history(),
           keymap.of(historyKeymap),
+          keymap.of(defaultKeymap),
           EditorView.lineWrapping,
         ],
       },
@@ -187,6 +189,7 @@ const MergeViewDemo: React.FC = () => {
         oneDark,
         history(),
         keymap.of(historyKeymap),
+        keymap.of(defaultKeymap),
         EditorView.lineWrapping,
         EditorView.theme({
           ".cm-changeGutter": {

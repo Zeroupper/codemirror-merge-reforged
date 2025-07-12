@@ -78,7 +78,7 @@ class SharedHistory {
   private currentIndex = -1;
   private lastUndoTimestamp = 0;
   private lastRedoTimestamp = 0;
-  private groupTimeoutMs = 1000;
+  private groupTimeoutMs = 600;
 
   addTransaction(editor: "a" | "b", transaction: Transaction) {
     console.log(`Adding transaction for editor ${editor}`);
