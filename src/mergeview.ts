@@ -624,57 +624,7 @@ export class MergeView {
       if ("renderRevertControl" in config) render = config.renderRevertControl;
       this.setupRevertControls(controls, toA, render);
     }
-    // Handle keymap reconfiguration
-    if ("keymap" in config) {
-      const unifiedUndo = () => {
-        const historyGroups = this.sharedHistory.undoGroup();
-        if (historyGroups && historyGroups.length > 0) {
-          for (const { editor, transactions } of historyGroups.reverse()) {
-            const targetEditor = editor === "a" ? this.a : this.b;
-            for (const transaction of transactions.reverse()) {
-              const inverseChanges = transaction.changes.invert(
-                transaction.startState.doc
-              );
-              targetEditor.dispatch({
-                changes: inverseChanges,
-                userEvent: "undo",
-                annotations: [Transaction.addToHistory.of(false)],
-              });
-            }
-          }
-          return true;
-        }
-        return false;
-      };
-
-      const unifiedRedo = () => {
-        const historyGroups = this.sharedHistory.redoGroup();
-        if (historyGroups && historyGroups.length > 0) {
-          for (const { editor, transactions } of historyGroups) {
-            const targetEditor = editor === "a" ? this.a : this.b;
-            for (const transaction of transactions) {
-              targetEditor.dispatch({
-                changes: transaction.changes,
-                userEvent: "redo",
-                annotations: [Transaction.addToHistory.of(false)],
-              });
-            }
-          }
-          return true;
-        }
-        return false;
-      };
-
-      const keymapConfig =
-        config.keymap === false
-          ? []
-          : config.keymap
-          ? mergeKeymap(unifiedUndo, unifiedRedo, config.keymap)
-          : defaultMergeKeymap(unifiedUndo, unifiedRedo);
-
-      this.a.dispatch({ effects: keymapCompartment.reconfigure(keymapConfig) });
-      this.b.dispatch({ effects: keymapCompartment.reconfigure(keymapConfig) });
-    }
+    
     let highlight = "highlightChanges" in config,
       gutter = "gutter" in config,
       collapse = "collapseUnchanged" in config;
