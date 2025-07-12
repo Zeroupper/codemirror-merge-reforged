@@ -344,35 +344,16 @@ export class MergeView {
 
     // Create unified undo/redo commands
     const unifiedUndo = () => {
-      console.log("🔄 UNIFIED UNDO CALLED - Our custom implementation");
-      console.log(
-        "SharedHistory state before undo:",
-        this.sharedHistory.getState()
-      );
 
       const historyGroups = this.sharedHistory.undoGroup();
       if (historyGroups && historyGroups.length > 0) {
-        console.log(
-          `Found ${historyGroups.length} editor groups to undo:`,
-          historyGroups.map(
-            (g) => `${g.editor}: ${g.transactions.length} transactions`
-          )
-        );
 
         // Apply undo transactions in reverse order (most recent first)
         for (const { editor, transactions } of historyGroups.reverse()) {
           const targetEditor = editor === "a" ? this.a : this.b;
 
-          console.log(
-            `Undoing ${transactions.length} transactions from editor ${editor}`
-          );
-
           // Apply transactions in reverse order within each editor group
           for (const transaction of transactions.reverse()) {
-            console.log(
-              `  - Undoing transaction with ${transaction.changes.length} changes`
-            );
-
             // Create inverse transaction to undo the change
             const inverseChanges = transaction.changes.invert(
               transaction.startState.doc
@@ -385,11 +366,7 @@ export class MergeView {
             });
           }
         }
-
-        console.log(
-          "SharedHistory state after undo:",
-          this.sharedHistory.getState()
-        );
+        
         return true;
       } else {
         console.log("No history groups to undo");
