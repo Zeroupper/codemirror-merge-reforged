@@ -203,7 +203,6 @@ const MergeViewDemo: React.FC = () => {
           highlightChanges: true,
           allowInlineDiffs: true,
           gutter: true,
-          changeReversed: true,
         }),
         // Listen to chunk events and update shared docs
         EditorView.updateListener.of((update) => {
