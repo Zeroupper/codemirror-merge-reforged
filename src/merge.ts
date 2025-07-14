@@ -26,7 +26,6 @@ type Config = {
       ) => boolean)
     | undefined;
   side: "a" | "b";
-  changeReversed?: boolean;
 };
 
 export const mergeConfig = Facet.define<Config, Config>({

@@ -1,307 +1,364 @@
 import React, { useState, useEffect, useRef } from "react";
-import { EditorView } from "@codemirror/view";
 import Container from "./components/Container";
 import Button from "./components/Button";
-import { unifiedMergeView } from "../../../src/unified";
-
-const sampleCode = {
-  original: `import { useEffect, useRef } from 'react';
-import { MergeView, getChunks } from '@codemirror/merge';
-import { EditorSelection, EditorState, Transaction } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { DiffViewProps } from './types';
-import { history, historyKeymap, defaultKeymap } from '@codemirror/commands';
-import { keymap } from '@codemirror/view';
-import { useFocusStore } from '@/store/focusStore';
-import { useShallow } from 'zustand/react/shallow';
-import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
-import { KeyBinding } from '@/utils/keyboardShortcuts';
-import { createDiffConfig } from './diffAlgorithms';
-import { renderRevertControl } from './utils';
-
-const moveByChunk =
-  (dir: number) =>
-  ({ state, dispatch }: { state: EditorState; dispatch: (tr: Transaction) => void }) => {
-    let { chunks, side } = getChunks(state) || { chunks: [], side: 'a' };
-    if (!chunks || !chunks.length || !side) return false;
-    let { head } = state.selection.main,
-      pos = 0;
-    for (let i = chunks.length - 1; i >= 0; i--) {
-      let chunk = chunks[i];
-      let [from, to] = side == 'b' ? [chunk.fromB, chunk.toB] : [chunk.fromA, chunk.toA];
-      if (to < head) {
-        pos = i + 1;
-        break;
-      }
-      if (from <= head) {
-        if (chunks.length == 1) return false;
-        pos = i + (dir < 0 ? 0 : 1);
-        break;
-      }
-    }
-
-    if (pos + dir < 0 || pos + dir > chunks.length) {
-      console.log(\`No next chunk in direction \${dir}, pos=\${pos}, returning false\`);
-      return false;
-    }
-
-    let next = chunks[(pos + (dir < 0 ? chunks.length - 1 : 0)) % chunks.length];
-
-    let [from, to] = side == 'b' ? [next.fromB, next.toB] : [next.fromA, next.toA];
-    dispatch(
-      state.update({
-        selection: { anchor: dir < 0 ? to - 1 : from },
-        userEvent: 'select.byChunk',
-        effects: EditorView.scrollIntoView(EditorSelection.range(from, to), { y: 'center' }),
-      })
-    );
-    return true;
-  };`,
-  modified: `import { useEffect, useRef, useMemo, useCallback } from 'react';
-import { MergeView, getChunks } from '@codemirror/merge';
-import { EditorSelection, EditorState, Transaction } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { DiffViewProps } from './types';
-import { history, historyKeymap, defaultKeymap } from '@codemirror/commands';
-import { keymap } from '@codemirror/view';
-import { useFocusStore } from '@/store/focusStore';
-import { useShallow } from 'zustand/react/shallow';
-import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
-import { KeyBinding } from '@/utils/keyboardShortcuts';
-import { createDiffConfig } from './diffAlgorithms';
-import { renderRevertControl } from './utils';
-
-const moveByChunk =
-  (dir: number) =>
-  ({ state, dispatch }: { state: EditorState; dispatch: (tr: Transaction) => void }) => {
-    let { chunks, side } = getChunks(state) || { chunks: [], side: 'a' };
-    if (!chunks || !chunks.length || !side) return false;
-    let { head } = state.selection.main,
-      pos = 0;
-    for (let i = chunks.length - 1; i >= 0; i--) {
-      let chunk = chunks[i];
-      let [from, to] = side == 'b' ? [chunk.fromB, chunk.toB] : [chunk.fromA, chunk.toA];
-      if (to < head) {
-        pos = i + 1;
-        break;
-      }
-      if (from <= head) {
-        if (chunks.length == 1) return false;
-        pos = i + (dir < 0 ? 0 : 1);
-        break;
-      }
-    }
-
-    if (pos + dir < 0 || pos + dir > chunks.length) {
-      console.log(\`No next chunk in direction \${dir}, pos=\${pos}, returning false\`);
-      return false;
-    }
-
-    let next = chunks[(pos + (dir < 0 ? chunks.length - 1 : 0)) % chunks.length];
-
-    let [from, to] = side == 'b' ? [next.fromB, next.toB] : [next.fromA, next.toA];
-    dispatch(
-      state.update({
-        selection: { anchor: dir < 0 ? to - 1 : from },
-        userEvent: 'select.byChunk',
-        effects: EditorView.scrollIntoView(EditorSelection.range(from, to), { y: 'center' }),
-      })
-    );
-    return true;
-  };
-
-// Memoize diff config to prevent recreation
-const diffConfig = useMemo(() => createDiffConfig('myers', {
-  ignoreWhitespace: true,
-  semanticCleanup: true,
-}), []);
-
-// Enhanced performance optimizations
-const handleDocumentChange = useCallback((newContent: string, isOriginal: boolean) => {
-  if (isUpdatingRef.current) return;
-  
-  if (isOriginal && newContent !== lastOriginalRef.current) {
-    lastOriginalRef.current = newContent;
-    setCurrentOriginal(newContent);
-  } else if (!isOriginal && newContent !== lastModifiedRef.current) {
-    lastModifiedRef.current = newContent;
-    setCurrentModified(newContent);
-  }
-}, [setCurrentOriginal, setCurrentModified]);`,
-};
-
-type ViewType = "regular" | "unified";
+import { createTestConfigs } from "./performance/testConfigs";
+import { executeTest, cleanupTest } from "./performance/testUtils";
+import { TestResult, ActiveTest } from "./performance/types";
 
 const PerformanceTest: React.FC = () => {
   const [editorCount, setEditorCount] = useState(10);
-  const [viewType, setViewType] = useState<ViewType>("regular");
-  const [editors, setEditors] = useState<EditorView[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [creationTime, setCreationTime] = useState<number | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [currentTest, setCurrentTest] = useState<string>("");
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [progress, setProgress] = useState(0);
+  const [activeTest, setActiveTest] = useState<ActiveTest | null>(null);
+  const [selectedConfig, setSelectedConfig] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const createEditors = async () => {
+  const testConfigs = createTestConfigs();
+
+  const runSingleTestVisible = async () => {
     if (!containerRef.current) return;
 
-    setIsCreating(true);
-    const startTime = performance.now();
+    const config = testConfigs[selectedConfig];
+    setIsRunning(true);
+    setCurrentTest(config.name);
 
-    // Clear existing editors
-    editors.forEach((editor) => editor.destroy());
+    // Auto-cleanup previous test
+    cleanupTest(activeTest);
     containerRef.current.innerHTML = "";
 
-    const newEditors: EditorView[] = [];
+    try {
+      const { editors, result } = await executeTest(config, editorCount, containerRef.current);
+      setActiveTest({ config, editors, result });
+      console.log(`${config.name}: ${result.creationTime.toFixed(2)}ms for ${editorCount} editors`);
+    } catch (error) {
+      console.error(`Test failed for ${config.name}:`, error);
+    }
 
-    // Create editors in batches to avoid blocking UI
-    const batchSize = 10;
-    for (let i = 0; i < editorCount; i += batchSize) {
-      const batch = Math.min(batchSize, editorCount - i);
+    setCurrentTest("");
+    setIsRunning(false);
+  };
 
-      for (let j = 0; j < batch; j++) {
-        const editorDiv = document.createElement("div");
-        editorDiv.className = "editor-item mb-4 border border-gray-300 rounded";
-        editorDiv.style.height = "200px";
-        editorDiv.style.overflow = "auto";
+  const runAllTests = async () => {
+    if (!containerRef.current) return;
 
-        const extensions = [
-          EditorView.theme({
-            "&": { height: "100%" },
-            ".cm-scroller": { overflow: "auto" },
-          }),
-          EditorView.lineWrapping,
-        ];
+    setIsRunning(true);
+    setResults([]);
+    setProgress(0);
 
-        let editor: EditorView;
+    // Auto-cleanup active test
+    cleanupTest(activeTest);
+    setActiveTest(null);
 
-        if (viewType === "unified") {
-          // Add unified merge view extension
-          extensions.push(
-            unifiedMergeView({
-              original: sampleCode.original,
-              mergeControls: true,
-              highlightChanges: true,
-              gutter: true,
-            })
-          );
+    const newResults: TestResult[] = [];
+    const totalTests = testConfigs.length;
 
-          editor = new EditorView({
-            parent: editorDiv,
-            doc: sampleCode.modified,
-            extensions,
-          });
-        } else {
-          // Regular editor
-          editor = new EditorView({
-            parent: editorDiv,
-            doc: sampleCode.modified,
-            extensions,
-          });
-        }
+    for (let i = 0; i < testConfigs.length; i++) {
+      const config = testConfigs[i];
+      setCurrentTest(config.name);
+      containerRef.current.innerHTML = "";
 
-        newEditors.push(editor);
-        containerRef.current.appendChild(editorDiv);
+      try {
+        const { editors, result } = await executeTest(config, editorCount, containerRef.current);
+        
+        // Clean up immediately for benchmark mode
+        editors.forEach((editor) => config.cleanup(editor));
+        containerRef.current.innerHTML = "";
+        
+        newResults.push(result);
+        setResults([...newResults]);
+        
+        console.log(`${config.name}: ${result.creationTime.toFixed(2)}ms for ${editorCount} editors`);
+      } catch (error) {
+        console.error(`Test failed for ${config.name}:`, error);
       }
 
-      // Allow UI to update between batches
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      setProgress(((i + 1) / totalTests) * 100);
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    const endTime = performance.now();
-    setCreationTime(endTime - startTime);
-    setEditors(newEditors);
-    setIsCreating(false);
-
-    console.log(
-      `Created ${editorCount} ${viewType} editors in ${endTime - startTime}ms`
-    );
+    setCurrentTest("");
+    setIsRunning(false);
   };
 
-  const destroyEditors = () => {
-    editors.forEach((editor) => editor.destroy());
-    setEditors([]);
-    if (containerRef.current) {
-      containerRef.current.innerHTML = "";
-    }
-    setCreationTime(null);
+  const clearResults = () => {
+    setResults([]);
+    setProgress(0);
   };
 
+  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      editors.forEach((editor) => editor.destroy());
-    };
-  }, []);
+    return () => cleanupTest(activeTest);
+  }, [activeTest]);
 
   return (
     <Container>
       <div className="performance-header">
-        <h2 className="performance-title">CodeMirror Performance Test</h2>
+        <h2 className="performance-title">CodeMirror Performance Benchmark</h2>
 
         <div className="performance-controls">
           <div className="input-group">
-            <label>Editor Count:</label>
+            <label>Editors per Test:</label>
             <input
               type="number"
               value={editorCount}
-              onChange={(e) =>
-                setEditorCount(Math.max(1, parseInt(e.target.value) || 1))
-              }
+              onChange={(e) => setEditorCount(Math.max(1, parseInt(e.target.value) || 1))}
               className="number-input"
               min="1"
-              max="1000"
+              max="100"
+              disabled={isRunning}
             />
           </div>
 
-          <div className="radio-group">
-            <span>View Type:</span>
-            <label className="radio-option">
-              <input
-                type="radio"
-                value="regular"
-                checked={viewType === "regular"}
-                onChange={(e) => setViewType(e.target.value as ViewType)}
-              />
-              Regular
-            </label>
-            <label className="radio-option">
-              <input
-                type="radio"
-                value="unified"
-                checked={viewType === "unified"}
-                onChange={(e) => setViewType(e.target.value as ViewType)}
-              />
-              Unified Merge
-            </label>
+          <div className="input-group">
+            <label>Test Configuration:</label>
+            <select
+              value={selectedConfig}
+              onChange={(e) => setSelectedConfig(parseInt(e.target.value))}
+              className="config-select"
+              disabled={isRunning}
+            >
+              {testConfigs.map((config, i) => (
+                <option key={i} value={i}>
+                  {config.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="performance-actions">
-          <Button onClick={createEditors} variant="primary">
-            {isCreating ? "Creating..." : `Create ${viewType} Editors`}
+          <Button onClick={runSingleTestVisible} variant="primary" disabled={isRunning}>
+            {isRunning && currentTest ? "Creating..." : "Run & Show Selected Test"}
           </Button>
-
-          <Button onClick={destroyEditors} variant="primary">
-            Destroy All
+          <Button onClick={runAllTests} variant="primary" disabled={isRunning}>
+            {isRunning ? "Running All Tests..." : "Benchmark All Tests"}
+          </Button>
+          <Button onClick={clearResults} variant="primary" disabled={isRunning}>
+            Clear Results
           </Button>
         </div>
 
-        <div className="performance-stats">
-          <div>
-            Active Editors: {editors.length} ({viewType})
+        {isRunning && (
+          <div className="performance-progress">
+            <div>Current Test: {currentTest}</div>
+            {progress > 0 && (
+              <>
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div>{progress.toFixed(1)}% Complete</div>
+              </>
+            )}
           </div>
-          {creationTime && (
-            <div>Creation Time: {creationTime.toFixed(2)}ms</div>
-          )}
-          {creationTime && editors.length > 0 && (
-            <div>
-              Avg per Editor: {(creationTime / editors.length).toFixed(2)}ms
+        )}
+
+        {activeTest && (
+          <div className="active-test-info">
+            <h3>Active Test: {activeTest.config.name}</h3>
+            <div className="test-stats">
+              <span>Editors: {activeTest.result.editorCount}</span>
+              <span>Creation Time: {activeTest.result.creationTime.toFixed(2)}ms</span>
+              <span>Avg/Editor: {activeTest.result.avgPerEditor.toFixed(2)}ms</span>
+              {activeTest.result.memoryUsage && (
+                <span>Memory: {(activeTest.result.memoryUsage / 1024 / 1024).toFixed(1)}MB</span>
+              )}
             </div>
-          )}
-        </div>
+            <p className="test-description">{activeTest.config.description}</p>
+          </div>
+        )}
+
+        {results.length > 0 && (
+          <div className="performance-results">
+            <h3>Benchmark Results</h3>
+            <div className="results-table">
+              <div className="results-header">
+                <span>Configuration</span>
+                <span>Total Time</span>
+                <span>Avg/Editor</span>
+                <span>Memory</span>
+              </div>
+              {results.map((result, i) => (
+                <div key={i} className="results-row">
+                  <span title={testConfigs.find(c => c.name === result.config)?.description}>
+                    {result.config}
+                  </span>
+                  <span>{result.creationTime.toFixed(2)}ms</span>
+                  <span>{result.avgPerEditor.toFixed(2)}ms</span>
+                  <span>
+                    {result.memoryUsage 
+                      ? `${(result.memoryUsage / 1024 / 1024).toFixed(1)}MB`
+                      : 'N/A'
+                    }
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div ref={containerRef} className="editors-container" />
+
+      <style jsx>{`
+        .performance-header {
+          padding: 20px;
+          border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .performance-title {
+          font-size: 24px;
+          font-weight: bold;
+          margin-bottom: 20px;
+        }
+        
+        .performance-controls {
+          display: flex;
+          gap: 20px;
+          margin-bottom: 20px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        
+        .input-group {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .input-group label {
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        
+        .number-input {
+          padding: 4px 8px;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          width: 80px;
+        }
+        
+        .config-select {
+          padding: 4px 8px;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          min-width: 200px;
+        }
+        
+        .performance-actions {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+        
+        .performance-progress {
+          background: #f5f5f5;
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+          width: 100%;
+          height: 20px;
+          background: #e0e0e0;
+          border-radius: 10px;
+          overflow: hidden;
+          margin: 10px 0;
+        }
+        
+        .progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #4CAF50, #45a049);
+          transition: width 0.3s ease;
+        }
+        
+        .active-test-info {
+          background: #e8f5e8;
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          border-left: 4px solid #4CAF50;
+        }
+        
+        .active-test-info h3 {
+          margin: 0 0 10px 0;
+          color: #2e7d32;
+        }
+        
+        .test-stats {
+          display: flex;
+          gap: 20px;
+          margin-bottom: 10px;
+          flex-wrap: wrap;
+        }
+        
+        .test-stats span {
+          background: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        
+        .test-description {
+          margin: 0;
+          font-style: italic;
+          color: #555;
+        }
+        
+        .performance-results {
+          margin-top: 20px;
+        }
+        
+        .results-table {
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        
+        .results-header,
+        .results-row {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr 1fr;
+          gap: 10px;
+          padding: 12px;
+          align-items: center;
+        }
+        
+        .results-header {
+          background: #f5f5f5;
+          font-weight: bold;
+          border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .results-row {
+          border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .results-row:last-child {
+          border-bottom: none;
+        }
+        
+        .results-row:hover {
+          background: #f9f9f9;
+        }
+        
+        .editors-container {
+          padding: 20px;
+          max-height: 600px;
+          overflow-y: auto;
+        }
+        
+        .editor-item {
+          margin-bottom: 8px;
+        }
+      `}</style>
     </Container>
   );
 };

@@ -6,3 +6,5 @@ package-lock.json
 /test/*.d.ts.map
 .tern-*
 examples/basic-demo/node_modules/
+
+dist/
