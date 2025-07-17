@@ -30,7 +30,7 @@
   "module": "./dist/index.js",
   "sideEffects": false,
   "license": "MIT",
-  "private": true,          
+  "private": false,          
   "workspaces": [
     "examples/basic-demo"
   ],
