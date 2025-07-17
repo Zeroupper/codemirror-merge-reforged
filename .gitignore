@@ -7,4 +7,3 @@ package-lock.json
 .tern-*
 examples/basic-demo/node_modules/
 
-dist/
